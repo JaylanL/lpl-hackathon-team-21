@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Advisor Match helps first-time investors find the right advisor and feel ready for the first meeting." />
+    <title>Advisor Match</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">AM</span>
+        <div>
+          <div class="brand-name">Advisor Match</div>
+          <div class="brand-sub" data-i18n="tagline">Find your advisor. Walk in ready.</div>
+        </div>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Views">
+        <button role="tab" id="tab-investor" aria-controls="view-investor" aria-selected="true" data-view="investor" data-i18n="tabInvestor">Investor</button>
+        <button role="tab" id="tab-advisor" aria-controls="view-advisor" aria-selected="false" data-view="advisor" tabindex="-1" data-i18n="tabAdvisor">Advisor</button>
+        <button role="tab" id="tab-dashboard" aria-controls="view-dashboard" aria-selected="false" data-view="dashboard" tabindex="-1" data-i18n="tabDashboard">Business dashboard</button>
+      </nav>
+    </header>
+
+    <div class="prefs" role="group" aria-label="Display and accessibility options">
+      <label class="toggle"><input type="checkbox" id="pref-es" /> <span>Español</span></label>
+      <label class="toggle"><input type="checkbox" id="pref-simple" /> <span data-i18n="prefSimple">Explain simply</span></label>
+      <label class="toggle"><input type="checkbox" id="pref-large" /> <span data-i18n="prefLarge">Larger text</span></label>
+      <label class="toggle"><input type="checkbox" id="pref-contrast" /> <span data-i18n="prefContrast">High contrast</span></label>
+      <label class="toggle"><input type="checkbox" id="pref-autoread" /> <span data-i18n="prefRead">Read replies aloud</span></label>
+    </div>
+
+    <main id="main">
+      <!-- Investor -->
+      <section id="view-investor" role="tabpanel" aria-labelledby="tab-investor" class="view">
+        <div class="investor-grid">
+          <div class="chat-card">
+            <h1 class="h1" data-i18n="investorTitle">Let's find the right advisor for you</h1>
+            <p class="lead" data-i18n="investorLead">Answer a few quick questions by typing or speaking. It takes about 3 minutes, and there are no wrong answers.</p>
+            <div id="chat" class="chat" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation"></div>
+            <div class="chips" id="starters">
+              <button class="chip" data-i18n="starter1">I'm new to investing and want help getting started</button>
+              <button class="chip" data-i18n="starter2">I want to buy a house in 5 years but I have student loans</button>
+              <button class="chip" lang="es">Hola, quiero ahorrar para mi primera casa</button>
+            </div>
+            <form id="composer" class="composer" autocomplete="off">
+              <label for="msg" class="sr-only" data-i18n="msgLabel">Your message</label>
+              <textarea id="msg" rows="2" placeholder="Type or tap the mic and speak…" data-i18n-ph="msgPh"></textarea>
+              <button type="button" id="mic" class="icon-btn" aria-pressed="false" aria-label="Start speaking">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+              </button>
+              <button type="submit" id="send" class="primary" data-i18n="send">Send</button>
+            </form>
+            <p id="live-hint" class="hint" aria-live="polite"></p>
+          </div>
+          <aside class="side" aria-label="Your matches and booking">
+            <h2 class="h2" data-i18n="matchesTitle">Your matches</h2>
+            <div id="matches" class="matches"><p class="muted" data-i18n="matchesEmpty">Your top 3 advisors will appear here, with the reasons each one fits you.</p></div>
+            <div id="booking"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Advisor -->
+      <section id="view-advisor" role="tabpanel" aria-labelledby="tab-advisor" class="view" hidden>
+        <div class="section-head">
+          <div>
+            <h1 class="h1" data-i18n="advisorTitle">New prospects</h1>
+            <p class="lead" data-i18n="advisorLead">Matched clients arrive with a briefing, so the first meeting starts with their goals, not paperwork. Designed to drop into ClientWorks.</p>
+          </div>
+          <button class="secondary" id="refresh-bookings" data-i18n="refresh">Refresh</button>
+        </div>
+        <div id="bookings" class="bookings"></div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="view-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" class="view" hidden>
+        <div class="section-head">
+          <div>
+            <h1 class="h1" data-i18n="dashTitle">Prospect-to-client funnel</h1>
+            <p class="lead" data-i18n="dashLead">Every intake is measured, so impact is visible, not claimed.</p>
+          </div>
+          <button class="secondary" id="refresh-metrics" data-i18n="refresh">Refresh</button>
+        </div>
+        <div id="funnel" class="funnel" aria-live="polite"></div>
+
+        <h2 class="h2" data-i18n="roiTitle">Business impact calculator (illustrative)</h2>
+        <p class="muted" data-i18n="roiNote">Move the sliders to model scenarios. Assumptions are inputs, not forecasts.</p>
+        <div class="roi">
+          <div class="roi-inputs">
+            <label>Advisors using Advisor Match <output id="o-adv"></output><input type="range" id="r-adv" min="100" max="10000" step="100" value="1000" /></label>
+            <label>New clients per advisor per year <output id="o-cli"></output><input type="range" id="r-cli" min="1" max="20" step="1" value="5" /></label>
+            <label>Average new assets per client <output id="o-aum"></output><input type="range" id="r-aum" min="10000" max="250000" step="5000" value="50000" /></label>
+            <label>Annual advisory fee <output id="o-fee"></output><input type="range" id="r-fee" min="0.25" max="1.5" step="0.05" value="1" /></label>
+          </div>
+          <div class="roi-out" aria-live="polite">
+            <div class="kpi"><div class="kpi-label">New clients / year</div><div class="kpi-val" id="k-clients">–</div></div>
+            <div class="kpi"><div class="kpi-label">New assets / year</div><div class="kpi-val" id="k-assets">–</div></div>
+            <div class="kpi accent"><div class="kpi-label">New annual fee revenue</div><div class="kpi-val" id="k-rev">–</div></div>
+            <p class="fineprint">Benchmark: Morgan Stanley reported AI-assisted prospect matching doubled successful referrals to over 100,000 in 2024.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="foot">Hackathon prototype · demo advisors are fictional · educational only, not investment advice</footer>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
