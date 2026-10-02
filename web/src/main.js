@@ -15,7 +15,12 @@ async function post(path, body = {}) {
 const T = {
   en: {
     tagline: "Find your advisor. Walk in ready.", tabInvestor: "Investor", tabAdvisor: "Advisor", tabDashboard: "Business dashboard",
-    prefSimple: "Explain simply", prefLarge: "Larger text", prefContrast: "High contrast", prefRead: "Read replies aloud",
+    languageLabel: "Language", textSize: "Text size", settings: "Settings", prefContrast: "High contrast", prefRead: "Read replies aloud",
+    howEyebrow: "Advisor Match", howTitle: "How it works",
+    howStep1Title: "1. Tell us your goals", howStep1Body: "Chat or speak in your own words: what you're saving for, what worries you, and how you like to meet. There are no wrong answers.",
+    howStep2Title: "2. Meet 3 matches", howStep2Body: "See three advisors who fit your goals, language and schedule, with a plain-language reason for each one. Verify any of them on FINRA BrokerCheck.",
+    howStep3Title: "3. Walk in ready", howStep3Body: "Book a time and get a personal prep kit: key terms explained simply, questions to ask, and what to bring. Your advisor gets a briefing too, so you start with your goals, not paperwork.",
+    howFootnote: "Free to use. We help you prepare, not invest: your advisor gives the advice.",
     investorTitle: "Let's find the right advisor for you",
     investorLead: "Answer a few quick questions by typing or speaking. It takes about 3 minutes, and there are no wrong answers.",
     starter1: "I'm new to investing and want help getting started", starter2: "I want to buy a house in 5 years but I have student loans",
@@ -32,7 +37,12 @@ const T = {
   },
   es: {
     tagline: "Encuentre a su asesor. Llegue preparado.", tabInvestor: "Inversionista", tabAdvisor: "Asesor", tabDashboard: "Panel de negocio",
-    prefSimple: "Explicar fácil", prefLarge: "Texto más grande", prefContrast: "Alto contraste", prefRead: "Leer respuestas en voz alta",
+    languageLabel: "Idioma", textSize: "Tamaño del texto", settings: "Ajustes", prefContrast: "Alto contraste", prefRead: "Leer respuestas en voz alta",
+    howEyebrow: "Advisor Match", howTitle: "Cómo funciona",
+    howStep1Title: "1. Cuéntenos sus metas", howStep1Body: "Escriba o hable con sus propias palabras: para qué está ahorrando, qué le preocupa y cómo prefiere reunirse. No hay respuestas incorrectas.",
+    howStep2Title: "2. Conozca 3 opciones", howStep2Body: "Vea tres asesores que coinciden con sus metas, idioma y horario, con una explicación sencilla de cada coincidencia. Verifique cualquiera en FINRA BrokerCheck.",
+    howStep3Title: "3. Llegue preparado", howStep3Body: "Reserve una cita y reciba una guía personal: conceptos clave explicados de forma sencilla, preguntas para hacer y qué llevar. Su asesor también recibe un resumen de sus metas.",
+    howFootnote: "Uso gratuito. Le ayudamos a prepararse, no a invertir: su asesor le da el consejo.",
     investorTitle: "Encontremos al asesor ideal para usted",
     investorLead: "Responda unas preguntas escribiendo o hablando. Toma unos 3 minutos y no hay respuestas incorrectas.",
     starter1: "Soy nuevo en inversiones y quiero ayuda para empezar", starter2: "Quiero comprar una casa en 5 años pero tengo préstamos estudiantiles",
@@ -47,9 +57,18 @@ const T = {
     booked: "¡Cita reservada!", with: "con", when: "Cuándo", chooseMsg: (n) => `Me gustaría reunirme con ${n}.`,
     error: "Lo siento, algo salió mal. Intente de nuevo.",
   },
+  zh: {
+    languageLabel: "语言", textSize: "文字大小", settings: "设置", prefContrast: "高对比度", prefRead: "朗读回复",
+    howEyebrow: "Advisor Match", howTitle: "使用方法",
+    howStep1Title: "1. 告诉我们您的目标", howStep1Body: "用自己的话输入或说出您正在为什​​么储蓄、担心什么，以及喜欢怎样见面。没有错误答案。",
+    howStep2Title: "2. 认识 3 位匹配顾问", howStep2Body: "查看符合您目标、语言和时间安排的三位顾问，并了解每位顾问适合您的简单原因。您可以在 FINRA BrokerCheck 上核实他们。",
+    howStep3Title: "3. 做好会面准备", howStep3Body: "预约时间并获得个人准备清单：简单解释的关键术语、可以提出的问题以及需要携带的材料。您的顾问也会收到一份目标摘要。",
+    howFootnote: "免费使用。我们帮助您做好准备，而不是替您投资：您的顾问会提供建议。",
+  },
 };
-const state = { lang: "en", simple: false, autoread: false, sessionId: null, busy: false, dictation: null };
-const t = (k) => T[state.lang][k] ?? T.en[k];
+const LANGUAGE_NAMES = { en: "English", es: "Spanish", zh: "Mandarin" };
+const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null };
+const t = (k) => (T[state.lang] ?? T.en)[k] ?? T.en[k];
 
 function applyI18n() {
   document.documentElement.lang = state.lang;
@@ -85,7 +104,16 @@ const chat = () => $("#chat");
 function addMsg(role, text, opts = {}) {
   const div = document.createElement("div");
   div.className = `msg ${role}${opts.cls ? " " + opts.cls : ""}`;
-  div.innerHTML = role === "bot" && !opts.cls ? md(text) : `<p>${esc(text)}</p>`;
+  const body = document.createElement("div");
+  body.className = "msg-body";
+  body.innerHTML = role === "bot" && !opts.cls ? md(text) : `<p>${esc(text)}</p>`;
+  if (role === "bot") {
+    const avatar = document.createElement("span");
+    avatar.className = "agent-avatar";
+    avatar.setAttribute("aria-hidden", "true");
+    avatar.textContent = "AM";
+    div.append(avatar, body);
+  } else div.append(body);
   if (role === "bot" && !opts.cls) {
     const b = document.createElement("button");
     b.className = "speak";
@@ -93,7 +121,7 @@ function addMsg(role, text, opts = {}) {
     b.textContent = "🔊 " + t("readAloud");
     b.setAttribute("aria-label", t("readAloud"));
     b.onclick = () => speak(text);
-    div.appendChild(b);
+    body.appendChild(b);
   }
   chat().appendChild(div);
   chat().scrollTop = chat().scrollHeight;
@@ -122,7 +150,7 @@ async function send(text) {
   $("#msg").value = "";
   const typing = addMsg("bot", t("thinking"), { cls: "typing" });
   try {
-    const res = await post("/chat", { message: text, session_id: state.sessionId, simple: state.simple, lang: state.lang });
+    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang] });
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
@@ -279,11 +307,36 @@ async function init() {
       n.focus(); showView(n.dataset.view);
     };
   });
-  $("#pref-es").onchange = (e) => { state.lang = e.target.checked ? "es" : "en"; applyI18n(); };
-  $("#pref-simple").onchange = (e) => (state.simple = e.target.checked);
-  $("#pref-large").onchange = (e) => document.documentElement.classList.toggle("large", e.target.checked);
+  document.querySelectorAll(".language-option").forEach((button) => (button.onclick = () => {
+    state.lang = button.dataset.lang;
+    document.querySelectorAll(".language-option").forEach((option) => {
+      const active = option === button;
+      option.classList.toggle("active", active);
+      option.setAttribute("aria-pressed", active);
+    });
+    applyI18n();
+  }));
+  document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
+    const size = Number(button.dataset.size);
+    document.documentElement.style.setProperty("--base", `${size / 100 * 17}px`);
+    document.querySelectorAll(".size-option").forEach((option) => {
+      const active = option === button;
+      option.classList.toggle("active", active);
+      option.setAttribute("aria-pressed", active);
+    });
+  }));
   $("#pref-contrast").onchange = (e) => document.documentElement.classList.toggle("contrast", e.target.checked);
   $("#pref-autoread").onchange = (e) => (state.autoread = e.target.checked);
+  $("#settings-toggle").onclick = () => {
+    const open = $("#settings-panel").classList.toggle("open");
+    $("#settings-toggle").setAttribute("aria-expanded", open);
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      $("#settings-panel").classList.remove("open");
+      $("#settings-toggle").setAttribute("aria-expanded", "false");
+    }
+  });
   $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#msg").value); };
   $("#msg").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("#msg").value); } };
   $("#mic").onclick = toggleMic;
