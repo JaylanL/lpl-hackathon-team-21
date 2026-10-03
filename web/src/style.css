@@ -159,7 +159,18 @@ html.contrast .avatar { outline: 2px solid var(--line); }
 html.contrast .form-error { color: #ffb4a8; }
 .form-error:empty { display: none; }
 .saved-note { color: var(--good); font-weight: 600; font-size: .85rem; margin: 6px 0 0; }
-.booking-card #bk-change { margin-top: 10px; width: 100%; }
+.booking-card .bk-actions { margin-top: 10px; }
+.booking-card .bk-actions > button { flex: 1 1 140px; }
+.booking-card #bk-again { margin-top: 10px; width: 100%; }
+.booking-card.cancelled { border-color: var(--line); }
+.booking-card.cancelled h3 { color: var(--ink-2); }
+.bk-confirm { margin-top: 10px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.bk-confirm p { margin: 0 0 8px; font-weight: 600; }
+.secondary.danger { color: #b42318; border-color: #f0c2bc; }
+.primary.danger { background: #b42318; border-color: #b42318; color: #fff; }
+html.contrast .secondary.danger { color: #ffb4a8; border-color: #ffb4a8; }
+html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; color: #000; }
+.cancelled-pill { color: #b42318; border-color: currentColor; }
 .booking-card h3 { margin: 0 0 6px; color: var(--good); font-size: 1rem; }
 
 .section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }

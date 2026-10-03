@@ -48,6 +48,9 @@ const T = {
     bkSubmit: "Book meeting", bkSave: "Save changes", bkCancel: "Cancel", bkChange: "Change details",
     bkSaved: "Changes saved.", bkWeekdays: "Weekdays only, advisor's local time.", bkPurposeLabel: "Meeting about",
     bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
+    bkCancelMeeting: "Cancel meeting", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
+    bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
+    bkBookAgain: "Book a new time", bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
     progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
     langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
     reason: {
@@ -92,6 +95,9 @@ const T = {
     bkSubmit: "Reservar reunión", bkSave: "Guardar cambios", bkCancel: "Cancelar", bkChange: "Cambiar detalles",
     bkSaved: "Cambios guardados.", bkWeekdays: "Solo días laborables, hora local del asesor.", bkPurposeLabel: "Tema",
     bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
+    bkCancelMeeting: "Cancelar reunión", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
+    bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
+    bkBookAgain: "Reservar otro horario", bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
     progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
     langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
     reason: {
@@ -121,6 +127,9 @@ const T = {
     bkSubmit: "预约会面", bkSave: "保存更改", bkCancel: "取消", bkChange: "修改详情",
     bkSaved: "更改已保存。", bkWeekdays: "仅限工作日，顾问当地时间。", bkPurposeLabel: "会面主题",
     bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
+    bkCancelMeeting: "取消会面", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
+    bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
+    bkBookAgain: "预约新时间", bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
     progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
     langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
     reason: {
@@ -442,6 +451,19 @@ function openBookingForm(advisor, existing = null) {
 function renderBooking(b, notice = "") {
   const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
+  const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
+  if (b.status === "cancelled") {
+    $("#booking").innerHTML = `
+      <div class="booking-card cancelled" role="status">
+        <h3>${esc(t("bkCancelled"))}</h3>
+        <div>${esc(b.prospect_name)} ${t("with")} <strong>${esc(b.advisor_name)}</strong></div>
+        <div class="meta"><s>${esc(when)}</s></div>
+        <p class="meta">${esc(t("bkCancelledNote"))}</p>
+        <button type="button" class="secondary" id="bk-again">${esc(t("bkBookAgain"))}</button>
+      </div>`;
+    $("#bk-again").onclick = () => openBookingForm(advisor);
+    return;
+  }
   $("#booking").innerHTML = `
     <div class="booking-card" role="status">
       <h3>✓ ${t("booked")}</h3>
@@ -449,9 +471,36 @@ function renderBooking(b, notice = "") {
       <div class="meta">${t("when")}: ${esc(when)}</div>
       ${b.meeting_purpose ? `<div class="meta">${esc(t("bkPurposeLabel"))}: ${esc(b.meeting_purpose)}</div>` : ""}
       ${notice ? `<p class="saved-note">${esc(notice)}</p>` : ""}
-      ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
+      <div class="bk-actions">
+        ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
+        <button type="button" class="secondary danger" id="bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
+      </div>
+      <div class="bk-confirm" id="bk-confirm" hidden>
+        <p>${esc(t("bkConfirmCancel")(b.advisor_name))}</p>
+        <div class="bk-actions">
+          <button type="button" class="primary danger" id="bk-yes-cancel">${esc(t("bkYesCancel"))}</button>
+          <button type="button" class="secondary" id="bk-keep">${esc(t("bkKeep"))}</button>
+        </div>
+        <p class="form-error" id="bk-cancel-error" role="alert"></p>
+      </div>
+      <p class="fineprint">${esc(t("bkChatTip"))}</p>
     </div>`;
-  $("#bk-change")?.addEventListener("click", () => openBookingForm({ advisor_id: b.advisor_id, name: b.advisor_name }, b));
+  $("#bk-change")?.addEventListener("click", () => openBookingForm(advisor, b));
+  const confirmBox = $("#bk-confirm");
+  $("#bk-cancel-meeting").onclick = () => { confirmBox.hidden = false; $("#bk-keep").focus(); };
+  $("#bk-keep").onclick = () => { confirmBox.hidden = true; $("#bk-cancel-meeting").focus(); };
+  $("#bk-yes-cancel").onclick = async () => {
+    const yes = $("#bk-yes-cancel");
+    yes.disabled = true;
+    try {
+      const { booking } = await post("/bookings/cancel", { booking_id: b.booking_id, session_id: state.sessionId });
+      saveBookingLocally(booking);
+      renderBooking(booking);
+    } catch (e) {
+      $("#bk-cancel-error").textContent = e.message;
+      yes.disabled = false;
+    }
+  };
 }
 
 // ---------- dictation ----------
@@ -531,7 +580,7 @@ async function loadBookings() {
       el.className = "bk";
       el.innerHTML = `
         <h3>${esc(b.prospect_name || "New prospect")} → ${esc(b.advisor_name || b.advisor_id)}</h3>
-        <div class="meta">First meeting: ${esc(b.time_slot || "")}
+        <div class="meta">First meeting: ${b.status === "cancelled" ? `<s>${esc(b.time_slot || "")}</s> <span class="crm cancelled-pill">Cancelled</span>` : esc(b.time_slot || "")}
           ${b.crm_status ? `<span class="crm ${b.crm_status === "synced" ? "ok" : ""}">${b.crm_status === "synced" ? "✓ Synced to CRM" : "CRM sync pending"}</span>` : ""}</div>
         <dl>
           ${b.meeting_purpose ? `<dt>Meeting about</dt><dd>${esc(b.meeting_purpose)}</dd>` : ""}

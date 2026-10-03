@@ -334,7 +334,7 @@ Resources:
       EventBusName: !Ref EventBus
       EventPattern:
         source: [advisor-match.booking]
-        detail-type: [ClientConsultationBooked, ClientConsultationUpdated]
+        detail-type: [ClientConsultationBooked, ClientConsultationUpdated, ClientConsultationCancelled]
       Targets:
         - Id: crm-queue
           Arn: !GetAtt CrmQueue.Arn
