@@ -53,6 +53,7 @@ html.contrast .tabs button[aria-selected="true"] { background: #ffd400; color: #
 .text-size-control { min-height: 36px; }
 .size-option { min-width: 38px; min-height: 34px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
 .size-option.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.mobile-text-size { display: none; }
 .toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; }
 .toggle input { width: 20px; height: 20px; accent-color: var(--accent); }
 
@@ -231,7 +232,9 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
   .topbar { padding: 14px 16px; }
   .tabs { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; width: 100%; justify-content: center; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: var(--brand); box-shadow: 0 -8px 24px rgba(16, 42, 67, .16); }
   .tabs button { flex: 1; padding-inline: 8px; font-size: .78rem; }
-  .settings-toggle { position: fixed; z-index: 21; top: 12px; right: 12px; display: block; min-height: 38px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; background: var(--brand); color: #fff; font: inherit; font-size: .8rem; cursor: pointer; }
+  .topbar { position: relative; padding-right: 62px; }
+  .brand { min-width: 0; }
+  .settings-toggle { position: absolute; z-index: 21; top: 12px; right: 12px; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid rgba(255,255,255,.4); border-radius: 10px; background: var(--brand); color: #fff; font: inherit; font-size: 1.1rem; cursor: pointer; }
   .prefs { position: fixed; z-index: 19; right: 10px; bottom: 64px; left: 10px; display: none; align-items: stretch; padding: 16px; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 38px rgba(16, 42, 67, .2); }
   .prefs.open { display: grid; animation: slide-up .18s ease-out; }
   .language-picker, .text-size-control { width: 100%; justify-content: space-between; }
@@ -239,6 +242,8 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
   .language-option { flex: 1; justify-content: center; padding-inline: 5px; }
   .text-size-control { flex-wrap: wrap; }
   .text-size-control .pref-label { margin-right: auto; }
+  .text-size-control .size-option { display: none; }
+  .mobile-text-size { display: block; width: 100%; accent-color: var(--accent); }
   main { padding: 22px 12px 32px; }
   .chat-card { padding: 18px 14px; }
   .chat-collapse { display: block; flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: .72rem; cursor: pointer; }

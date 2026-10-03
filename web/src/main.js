@@ -933,12 +933,21 @@ async function init() {
   document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
     const size = Number(button.dataset.size);
     document.documentElement.style.setProperty("--base", `${size / 100 * 17}px`);
+    $("#mobile-text-size").value = String(size);
     document.querySelectorAll(".size-option").forEach((option) => {
       const active = option === button;
       option.classList.toggle("active", active);
       option.setAttribute("aria-pressed", active);
     });
   }));
+  $("#mobile-text-size").oninput = (e) => {
+    const size = Number(e.target.value);
+    document.documentElement.style.setProperty("--base", `${size / 100 * 17}px`);
+    document.querySelectorAll(".size-option").forEach((option) => {
+      option.classList.remove("active");
+      option.setAttribute("aria-pressed", "false");
+    });
+  };
   $("#pref-contrast").onchange = (e) => document.documentElement.classList.toggle("contrast", e.target.checked);
   $("#pref-autoread").onchange = (e) => (state.autoread = e.target.checked);
   $("#settings-toggle").onclick = () => {
