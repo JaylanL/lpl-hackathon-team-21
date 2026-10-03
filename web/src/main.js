@@ -48,7 +48,10 @@ const T = {
     bkSubmit: "Book meeting", bkSave: "Save changes", bkCancel: "Cancel", bkChange: "Change details",
     bkSaved: "Changes saved.", bkWeekdays: "Weekdays only, advisor's local time.", bkPurposeLabel: "Meeting about",
     bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
+    bkCancelMeeting: "Cancel meeting", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
+    bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
+    bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
+    matchScore: (n) => `${n}% match`, whyFit: "Why this match",
     langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
     reason: {
       language: (v, t) => `Speaks ${t.langNames[v] ?? v}, your preferred language`,
@@ -56,6 +59,11 @@ const T = {
       focus: (v) => `Focuses on ${v}`,
       availability: (n) => `${n} open first-meeting slot${n === 1 ? "" : "s"}`,
     },
+    reasonShort: {
+      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "In person" : "Virtual"),
+      focus: (v) => v, availability: (n) => `${n} open slot${n === 1 ? "" : "s"}`,
+    },
+    more: "More", less: "Less", moreAbout: (n) => `More about ${n}`,
     driversNote: "Ranked mostly by", drivers: { expertise: "fit with your goals", language: "language", meeting: "meeting type", availability: "availability" },
     feeLabel: "How they're paid", formCrs: "You'll get a Form CRS: a short summary of services, fees and conflicts of interest.",
   },
@@ -92,7 +100,10 @@ const T = {
     bkSubmit: "Reservar reunión", bkSave: "Guardar cambios", bkCancel: "Cancelar", bkChange: "Cambiar detalles",
     bkSaved: "Cambios guardados.", bkWeekdays: "Solo días laborables, hora local del asesor.", bkPurposeLabel: "Tema",
     bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
+    bkCancelMeeting: "Cancelar reunión", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
+    bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
+    bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
+    matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
     langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
     reason: {
       language: (v, t) => `Habla ${t.langNames[v] ?? v}, su idioma preferido`,
@@ -100,6 +111,11 @@ const T = {
       focus: (v) => `Se especializa en: ${v}`,
       availability: (n) => `${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}`,
     },
+    reasonShort: {
+      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "Presencial" : "Virtual"),
+      focus: (v) => v, availability: (n) => `${n} cita${n === 1 ? "" : "s"} libre${n === 1 ? "" : "s"}`,
+    },
+    more: "Más", less: "Menos", moreAbout: (n) => `Más sobre ${n}`,
     driversNote: "Clasificado principalmente por", drivers: { expertise: "afinidad con sus metas", language: "idioma", meeting: "tipo de reunión", availability: "disponibilidad" },
     feeLabel: "Cómo cobra", formCrs: "Recibirá un Form CRS: un resumen breve de servicios, costos y conflictos de interés.",
   },
@@ -121,7 +137,10 @@ const T = {
     bkSubmit: "预约会面", bkSave: "保存更改", bkCancel: "取消", bkChange: "修改详情",
     bkSaved: "更改已保存。", bkWeekdays: "仅限工作日，顾问当地时间。", bkPurposeLabel: "会面主题",
     bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
-    progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
+    bkCancelMeeting: "取消会面", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
+    bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
+    bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
+    matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
     langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
     reason: {
       language: (v, t) => `会说${t.langNames[v] ?? v}，您偏好的语言`,
@@ -129,6 +148,11 @@ const T = {
       focus: (v) => `专注于：${v}`,
       availability: (n) => `${n} 个可预约时段`,
     },
+    reasonShort: {
+      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "面对面" : "线上"),
+      focus: (v) => v, availability: (n) => `${n} 个空档`,
+    },
+    more: "更多", less: "收起", moreAbout: (n) => `关于 ${n} 的更多信息`, choose: "选择这位顾问",
     driversNote: "主要排序依据", drivers: { expertise: "与您目标的契合度", language: "语言", meeting: "会议方式", availability: "可预约时间" },
     feeLabel: "收费方式", formCrs: "您将收到 Form CRS：一份关于服务、费用和利益冲突的简短说明。",
   },
@@ -273,7 +297,6 @@ async function send(text, extra = {}) {
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
-    if (res.progress) renderProgress(res.progress);
     if (res.matches) renderMatches((state.lastMatches = res.matches));
     if (res.booking) { saveBookingLocally(res.booking); renderBooking(res.booking); }
     if (state.autoread) speak(res.reply);
@@ -288,22 +311,15 @@ async function send(text, extra = {}) {
   }
 }
 
-// Intake progress (how many preference slots are filled), announced politely to screen readers.
-function renderProgress(p) {
-  const box = $("#intake-progress");
-  box.hidden = false;
-  $("#progress-val").textContent = `${p.percent}%`;
-  box.querySelector(".progress-track").setAttribute("aria-valuenow", p.percent);
-  box.querySelector(".progress-fill").style.width = `${p.percent}%`;
-}
-
 // Explainable match notes: deterministic reasons from the ranking, rendered in the user's language.
-function reasonText(r) {
+function reasonText(r, kind = "reason") {
   const L = T[state.lang] ?? T.en;
-  const fn = (L.reason ?? T.en.reason)[r.code];
+  const fn = (L[kind] ?? T.en[kind])[r.code];
   return fn ? fn(r.value, L.langNames ? L : T.en) : "";
 }
 
+// Compact cards so all three matches fit on one screen; the full details sit behind "More".
+let moreId = 0;
 function renderMatches(list) {
   $("#matches-announcement").textContent = t("matchesAnnounce")(list.length);
   const box = $("#matches");
@@ -311,22 +327,49 @@ function renderMatches(list) {
   list.forEach((a) => {
     const card = document.createElement("article");
     card.className = "match";
-    const reasons = (a.reasons || []).map(reasonText).filter(Boolean);
+    const reasons = (a.reasons || []).map((r) => reasonText(r)).filter(Boolean);
+    const short = (a.reasons || []).map((r) => reasonText(r, "reasonShort")).filter(Boolean).join(" · ");
     const drivers = (a.drivers || []).map((d) => t("drivers")[d] ?? d).join(", ");
     const d = a.disclosure;
+    const fee = d ? `${d.fee_model} · ${d.platform}` : "";
+    const id = `match-more-${++moreId}`;
     card.innerHTML = `
-      <div class="card-head">${advisorPicture(a, esc)}<h3>${esc(a.name)}${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3></div>
-      ${a.match_score != null ? `<div class="score">${esc(t("matchScore")(a.match_score))}</div>` : ""}
-      <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
-      <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
-      ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
-      <p class="meta">${esc(a.bio)}</p>
-      ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model)} · ${esc(d.platform)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
-      <button class="secondary choose" type="button">${t("choose")}</button>`;
+      <div class="card-head">${advisorPicture(a, esc)}
+        <div class="card-title">
+          <h3><span class="name" title="${esc(a.name)}">${esc(a.name)}</span>${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3>
+          <div class="meta one-line">${a.match_score != null ? `<span class="score">${esc(t("matchScore")(a.match_score))}</span> · ` : ""}${esc(a.city)}</div>
+        </div>
+      </div>
+      ${short ? `<div class="one-line why-short" title="${esc(reasons.join(" · "))}">${esc(short)}</div>` : ""}
+      ${fee ? `<div class="one-line fee-short" title="${esc(fee)}"><strong>${esc(t("feeLabel"))}:</strong> ${esc(fee)}</div>` : ""}
+      <div class="match-actions">
+        <button class="secondary more" type="button" aria-expanded="false" aria-controls="${id}" aria-label="${esc(t("moreAbout")(a.name))}">${esc(t("more"))} ▾</button>
+        <button class="secondary choose" type="button">${esc(t("choose"))}</button>
+      </div>
+      <div class="match-more" id="${id}" hidden>
+        <div class="meta">${esc(a.meeting_types.join(" / "))}</div>
+        <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
+        ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
+        <p class="meta">${esc(a.bio)}</p>
+        ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(fee)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
+      </div>`;
+    const more = card.querySelector(".more"), panel = card.querySelector(".match-more");
+    more.onclick = () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      more.setAttribute("aria-expanded", String(open));
+      more.textContent = `${t(open ? "less" : "more")} ${open ? "▴" : "▾"}`;
+    };
     card.querySelector(".choose").onclick = () => openBookingForm(a);
     wirePhotoFallbacks(card);
     box.appendChild(card);
   });
+  // On narrow screens the matches sit below the chat: bring all three into view together.
+  const side = $(".side");
+  if (side.getBoundingClientRect().top > innerHeight * 0.6) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    side.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }
 }
 
 // ---------- booking: pick a date, a time and what the meeting is about ----------
@@ -442,6 +485,15 @@ function openBookingForm(advisor, existing = null) {
 function renderBooking(b, notice = "") {
   const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
+  const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
+  if (b.status === "cancelled") {
+    // A cancelled meeting simply disappears; screen readers still hear that it was cancelled.
+    $("#booking").innerHTML = "";
+    state.booking = null;
+    try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
+    $("#booking-announcement").textContent = `${t("bkCancelled")}. ${t("bkCancelledNote")}`;
+    return;
+  }
   $("#booking").innerHTML = `
     <div class="booking-card" role="status">
       <h3>✓ ${t("booked")}</h3>
@@ -449,9 +501,37 @@ function renderBooking(b, notice = "") {
       <div class="meta">${t("when")}: ${esc(when)}</div>
       ${b.meeting_purpose ? `<div class="meta">${esc(t("bkPurposeLabel"))}: ${esc(b.meeting_purpose)}</div>` : ""}
       ${notice ? `<p class="saved-note">${esc(notice)}</p>` : ""}
-      ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
+      <div class="bk-actions">
+        ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
+        <button type="button" class="secondary danger" id="bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
+      </div>
+      <div class="bk-confirm" id="bk-confirm" hidden>
+        <p>${esc(t("bkConfirmCancel")(b.advisor_name))}</p>
+        <div class="bk-actions">
+          <button type="button" class="primary danger" id="bk-yes-cancel">${esc(t("bkYesCancel"))}</button>
+          <button type="button" class="secondary" id="bk-keep">${esc(t("bkKeep"))}</button>
+        </div>
+        <p class="form-error" id="bk-cancel-error" role="alert"></p>
+      </div>
+      <p class="fineprint">${esc(t("bkChatTip"))}</p>
     </div>`;
-  $("#bk-change")?.addEventListener("click", () => openBookingForm({ advisor_id: b.advisor_id, name: b.advisor_name }, b));
+  $("#bk-change")?.addEventListener("click", () => openBookingForm(advisor, b));
+  const confirmBox = $("#bk-confirm");
+  $("#bk-cancel-meeting").onclick = () => { confirmBox.hidden = false; $("#bk-keep").focus(); };
+  $("#bk-keep").onclick = () => { confirmBox.hidden = true; $("#bk-cancel-meeting").focus(); };
+  $("#bk-yes-cancel").onclick = async () => {
+    const yes = $("#bk-yes-cancel");
+    yes.disabled = true;
+    try {
+      const { booking } = await post("/bookings/cancel", { booking_id: b.booking_id, session_id: state.sessionId });
+      saveBookingLocally(booking);
+      renderBooking(booking);
+      $("#msg").focus();  // the button that had focus is gone
+    } catch (e) {
+      $("#bk-cancel-error").textContent = e.message;
+      yes.disabled = false;
+    }
+  };
 }
 
 // ---------- dictation ----------
@@ -531,7 +611,7 @@ async function loadBookings() {
       el.className = "bk";
       el.innerHTML = `
         <h3>${esc(b.prospect_name || "New prospect")} → ${esc(b.advisor_name || b.advisor_id)}</h3>
-        <div class="meta">First meeting: ${esc(b.time_slot || "")}
+        <div class="meta">First meeting: ${b.status === "cancelled" ? `<s>${esc(b.time_slot || "")}</s> <span class="crm cancelled-pill">Cancelled</span>` : esc(b.time_slot || "")}
           ${b.crm_status ? `<span class="crm ${b.crm_status === "synced" ? "ok" : ""}">${b.crm_status === "synced" ? "✓ Synced to CRM" : "CRM sync pending"}</span>` : ""}</div>
         <dl>
           ${b.meeting_purpose ? `<dt>Meeting about</dt><dd>${esc(b.meeting_purpose)}</dd>` : ""}

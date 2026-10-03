@@ -8,6 +8,7 @@ Routes (Lambda Function URL, JSON in / JSON out):
   POST /advisors  {language?, meeting_type?, text?}       -> {advisors, total}
   POST /availability {advisor_id, date}                   -> {date, times: [{time, label, available}]}
   POST /bookings/update {booking_id, session_id, date?, time?, purpose?} -> {booking}
+  POST /bookings/cancel {booking_id, session_id}          -> {booking}  (status "cancelled", time freed)
 /chat also accepts booking: {advisor_id, first_name, date, time, purpose} from the booking form.
   GET  /health                                            -> {ok}
 
@@ -24,7 +25,7 @@ from decimal import Decimal
 from typing import Optional
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 from pydantic import BaseModel, Field, ValidationError
 from strands import Agent, tool
@@ -78,6 +79,13 @@ Tools:
   choose an advisor, tell them to use it. If they only chat, ask for their first name and a time,
   then call book_meeting with the advisor_id exactly as search_advisors returned it.
 - If a message says the meeting is already booked, never call book_meeting again.
+- To change or cancel a meeting, call my_bookings first to get the booking_id.
+  To move it, turn their words into a date (YYYY-MM-DD) and a 24-hour time (HH:MM) using today's date
+  (given in each message), then call reschedule_meeting. Meetings are on weekdays, 9:00 to 18:00, on the
+  hour or half hour. If the tool says a time is taken or not allowed, offer the open times it returns.
+  They can also change what the meeting is about the same way.
+- Only call cancel_meeting when they clearly ask to cancel. If you're not sure, ask first.
+  After cancelling, tell them the time is free again and offer to help book a new one.
 - Right after booking, call create_advisor_briefing, then give the user a short
   "First Meeting Ready" kit: 3 terms explained simply, 4 questions to ask (always include
   "How are you paid?" and "What will this cost me?"), and a what-to-bring checklist.
@@ -121,6 +129,11 @@ class ChatRequest(BaseModel):
     simple: bool = False
     selected_advisor_id: Optional[str] = Field(default=None, pattern=r"^adv-[0-9]{1,6}$")
     booking: Optional[BookingForm] = None
+
+
+class BookingCancel(BaseModel):
+    booking_id: str = Field(pattern=r"^[a-f0-9]{10}$")
+    session_id: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
 
 
 class DirectoryRequest(BaseModel):
@@ -273,6 +286,7 @@ def create_scheduled_booking(session_id, form, adv):
         "meeting_time": form.time,
         "time_slot": scheduling.slot_label(form.date, form.time),
         "meeting_purpose": form.purpose.strip(),
+        "status": "booked",
         "session_id": session_id,
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "crm_status": "pending",
@@ -285,27 +299,61 @@ def create_scheduled_booking(session_id, form, adv):
     return booking
 
 
-def update_booking(req):
-    """Save changes to date, time or meeting purpose. Only the session that made the booking may change it."""
-    b = BOOKINGS.get_item(Key={"booking_id": req.booking_id}).get("Item")
-    if not b or b.get("session_id") != req.session_id or b.get("kind") == "slot_lock":
-        return respond(404, {"error": "not found", "detail": "We couldn't find that booking."})
-    if req.purpose is not None and matching.screen_pii(req.purpose):
-        return respond(400, {"error": "pii", "detail": matching.PII_REPLY.get(req.lang, matching.PII_REPLY["English"])})
-    date = req.date or b.get("meeting_date")
-    time_ = req.time or b.get("meeting_time")
-    moved = (date, time_) != (b.get("meeting_date"), b.get("meeting_time"))
-    if moved:
+class BookingError(Exception):
+    def __init__(self, status, detail):
+        super().__init__(detail)
+        self.status, self.detail = status, detail
+
+
+def own_booking(session_id, booking_id):
+    """The booking, if it belongs to this session. Only the session that made a booking may change it."""
+    b = BOOKINGS.get_item(Key={"booking_id": booking_id}).get("Item")
+    if not b or b.get("session_id") != session_id or b.get("kind") == "slot_lock":
+        raise BookingError(404, "We couldn't find that booking.")
+    return b
+
+
+def open_times(advisor_id, date):
+    if scheduling.check_slot(date, scheduling.TIMES[0]):
+        return []
+    taken = taken_times(advisor_id, date)
+    return [scheduling.slot_label(date, t).split(" at ")[1] for t in scheduling.TIMES if t not in taken]
+
+
+def free_slot(b):
+    if b.get("meeting_date") and b.get("meeting_time"):
+        BOOKINGS.delete_item(Key={"booking_id": scheduling.slot_key(b["advisor_id"], b["meeting_date"], b["meeting_time"])})
+
+
+def notify_crm(b, session_id, detail_type):
+    try:
+        publish_booking_event({k: v for k, v in b.items() if k != "briefing"}, b.get("briefing") or {},
+                              get_state(session_id)["slots"], detail_type=detail_type)
+    except Exception as e:  # the change is saved; the alarm surfaces a failed CRM hand-off
+        log("booking_event_failed", booking_id=b["booking_id"], error=repr(e), level="ERROR")
+        emit_metric("BookingEventFailed")
+
+
+def change_booking(b, session_id, date=None, time_=None, purpose=None, lang="English"):
+    """Move a booking and/or change what it's about. Raises BookingError with a message the user can act on."""
+    if b.get("status") == "cancelled":
+        raise BookingError(400, "This meeting was cancelled. Book a new time instead.")
+    if purpose is not None and matching.screen_pii(purpose):
+        raise BookingError(400, matching.PII_REPLY.get(lang, matching.PII_REPLY["English"]))
+    date = date or b.get("meeting_date")
+    time_ = time_ or b.get("meeting_time")
+    if not date or not time_:
+        raise BookingError(400, "Pick a date and a time.")
+    if (date, time_) != (b.get("meeting_date"), b.get("meeting_time")):
         problem = scheduling.check_slot(date, time_)
         if problem:
-            return respond(400, {"error": "invalid slot", "detail": problem})
+            raise BookingError(400, problem)
         try:
             lock_slot(b["advisor_id"], date, time_, b["booking_id"])
         except SlotTaken:
-            return respond(409, {"error": "slot taken", "detail": "That time was just taken. Pick another time."})
-        if b.get("meeting_date") and b.get("meeting_time"):
-            BOOKINGS.delete_item(Key={"booking_id": scheduling.slot_key(b["advisor_id"], b["meeting_date"], b["meeting_time"])})
-    purpose = b.get("meeting_purpose", "") if req.purpose is None else req.purpose.strip()
+            raise BookingError(409, "That time was just taken. Pick another time.") from None
+        free_slot(b)
+    purpose = b.get("meeting_purpose", "") if purpose is None else purpose.strip()
     b = BOOKINGS.update_item(
         Key={"booking_id": b["booking_id"]},
         UpdateExpression="SET meeting_date = :d, meeting_time = :t, time_slot = :l, meeting_purpose = :p, "
@@ -314,13 +362,47 @@ def update_booking(req):
                                    ":u": datetime.datetime.now(datetime.timezone.utc).isoformat(), ":s": "pending"},
         ReturnValues="ALL_NEW",
     )["Attributes"]
-    try:
-        publish_booking_event({k: v for k, v in b.items() if k != "briefing"}, b.get("briefing") or {},
-                              get_state(req.session_id)["slots"], detail_type="ClientConsultationUpdated")
-    except Exception as e:  # the change is saved; the alarm surfaces a failed CRM hand-off
-        log("booking_event_failed", booking_id=b["booking_id"], error=repr(e), level="ERROR")
-        emit_metric("BookingEventFailed")
+    notify_crm(b, session_id, "ClientConsultationUpdated")
     emit_metric("BookingsUpdated")
+    return b
+
+
+def cancel_booking(b, session_id):
+    """Cancel a booking: keep the record (status "cancelled"), free the time, tell the CRM."""
+    if b.get("status") == "cancelled":
+        return b
+    free_slot(b)
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    b = BOOKINGS.update_item(
+        Key={"booking_id": b["booking_id"]},
+        UpdateExpression="SET #st = :c, cancelled_at = :u, updated_at = :u, crm_status = :s",
+        ExpressionAttributeNames={"#st": "status"},
+        ExpressionAttributeValues={":c": "cancelled", ":u": now, ":s": "pending"},
+        ReturnValues="ALL_NEW",
+    )["Attributes"]
+    adv = next((a for a in advisors() if a["advisor_id"] == b["advisor_id"]), None)
+    if adv is not None:
+        adv["open_slots"] = adv.get("open_slots", 0) + 1
+    log_event("cancelled", session_id)
+    notify_crm(b, session_id, "ClientConsultationCancelled")
+    emit_metric("BookingsCancelled")
+    return b
+
+
+def update_booking(req):
+    try:
+        b = change_booking(own_booking(req.session_id, req.booking_id), req.session_id,
+                           req.date, req.time, req.purpose, req.lang)
+    except BookingError as e:
+        return respond(e.status, {"error": "booking", "detail": e.detail})
+    return respond(200, {"booking": b})
+
+
+def cancel_booking_route(req):
+    try:
+        b = cancel_booking(own_booking(req.session_id, req.booking_id), req.session_id)
+    except BookingError as e:
+        return respond(e.status, {"error": "booking", "detail": e.detail})
     return respond(200, {"booking": b})
 
 
@@ -401,6 +483,7 @@ def book_meeting(advisor_id: str, prospect_name: str, time_slot: str) -> dict:
         "advisor_name": adv["name"],
         "prospect_name": prospect_name.strip()[:40],
         "time_slot": time_slot,
+        "status": "booked",
         "session_id": UI["session_id"],
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "crm_status": "pending",
@@ -410,6 +493,56 @@ def book_meeting(advisor_id: str, prospect_name: str, time_slot: str) -> dict:
     log_event("booked", UI["session_id"])
     emit_metric("BookingsCreated")
     return booking
+
+
+@tool
+def my_bookings() -> list:
+    """List this person's meetings (booked and cancelled) with booking_id, advisor, date, time and topic.
+    Call this before reschedule_meeting or cancel_meeting."""
+    items = BOOKINGS.scan(FilterExpression=Attr("session_id").eq(UI["session_id"]) & Attr("kind").not_exists())["Items"]
+    items.sort(key=lambda b: b.get("created_at", ""), reverse=True)
+    return [{k: b.get(k, "") for k in ("booking_id", "advisor_name", "meeting_date", "meeting_time", "time_slot",
+                                        "meeting_purpose", "status")} for b in items]
+
+
+@tool
+def reschedule_meeting(booking_id: str, date: str = "", time: str = "", meeting_purpose: str = "") -> dict:
+    """Move a meeting to a new date and/or time, or change what it's about.
+
+    Args:
+        booking_id: from my_bookings.
+        date: new date as YYYY-MM-DD, or empty to keep the current date.
+        time: new start time as 24-hour HH:MM (e.g. "15:30"), or empty to keep the current time.
+        meeting_purpose: new topic in their words, or empty to keep the current one.
+    """
+    sid = UI["session_id"]
+    try:
+        current = own_booking(sid, booking_id)
+    except BookingError as e:
+        return {"error": e.detail}
+    try:
+        b = change_booking(current, sid, date or None, time or None, meeting_purpose or None)
+    except BookingError as e:
+        day = date or current.get("meeting_date", "")
+        return {"error": e.detail, "open_times_that_day": open_times(current["advisor_id"], day) if day else []}
+    UI["booking"] = b
+    return {k: b.get(k, "") for k in ("booking_id", "advisor_name", "time_slot", "meeting_purpose", "status")}
+
+
+@tool
+def cancel_meeting(booking_id: str) -> dict:
+    """Cancel a meeting. Only call this when the person clearly asked to cancel.
+
+    Args:
+        booking_id: from my_bookings.
+    """
+    sid = UI["session_id"]
+    try:
+        b = cancel_booking(own_booking(sid, booking_id), sid)
+    except BookingError as e:
+        return {"error": e.detail}
+    UI["booking"] = b
+    return {k: b.get(k, "") for k in ("booking_id", "advisor_name", "time_slot", "status")}
 
 
 @tool
@@ -504,11 +637,14 @@ def chat(body):
                     f"with {adv['name']} on {booking['time_slot']}. What they want to talk about: "
                     f"{booking['meeting_purpose'] or 'not given'}. Do not call book_meeting. Call create_advisor_briefing "
                     f"for this booking_id now, then give the First Meeting Ready kit.)")
+    now = datetime.date.today()
+    message += f"\n\n(Today is {now.strftime('%A')}, {now.isoformat()}.)"
     agent = Agent(
         model=MODEL,
         system_prompt=SYSTEM_PROMPT,
         callback_handler=None,
-        tools=[record_preferences, search_advisors, book_meeting, create_advisor_briefing],
+        tools=[record_preferences, search_advisors, book_meeting, create_advisor_briefing,
+               my_bookings, reschedule_meeting, cancel_meeting],
         session_manager=S3SessionManager(session_id=session_id, bucket=DATA_BUCKET, prefix="sessions/"),
     )
     started = time.time()
@@ -562,6 +698,9 @@ def lambda_handler(event, context):
 
         if path == "/bookings/update":
             return update_booking(BookingUpdate(**body))
+
+        if path == "/bookings/cancel":
+            return cancel_booking_route(BookingCancel(**body))
 
         if path == "/bookings":
             items = [i for i in BOOKINGS.scan(Limit=200)["Items"] if i.get("kind") != "slot_lock"]
