@@ -9,7 +9,7 @@ const api = (path) => CFG.apiUrl.replace(/\/$/, "") + path;
 async function post(path, body = {}) {
   const r = await fetch(api(path), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || data.error || `HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(data.detail || data.error || `HTTP ${r.status}`), { status: r.status });
   return data;
 }
 
@@ -378,11 +378,30 @@ function saveBookingLocally(b) {
   state.booking = b;
   try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, booking: b })); } catch (_) {}
 }
-function restoreBooking() {
+function forgetBooking() {
+  state.booking = null;
+  try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
+}
+// Show the booking saved in this browser only if the server still has it. Cleared, corrupt or blocked
+// storage, or a booking that was deleted or cancelled elsewhere, means there is no booking.
+async function restoreBooking() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null"); } catch (_) { forgetBooking(); return; }
+  if (!saved) return;
+  const { sessionId, booking } = saved;
+  if (!booking?.booking_id || !sessionId) { forgetBooking(); return; }
   try {
-    const saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null");
-    if (saved?.booking?.booking_id) { state.sessionId = saved.sessionId; state.booking = saved.booking; renderBooking(saved.booking); }
-  } catch (_) {}
+    const { booking: latest } = await post("/bookings/get", { booking_id: booking.booking_id, session_id: sessionId });
+    if (!latest || latest.status === "cancelled") { forgetBooking(); return; }
+    state.sessionId = sessionId;
+    saveBookingLocally(latest);
+    renderBooking(latest);
+  } catch (e) {
+    if (e.status) { forgetBooking(); return; }  // the server answered: the booking is gone or not ours
+    state.sessionId = sessionId;  // server unreachable: keep showing what we saved
+    state.booking = booking;
+    renderBooking(booking);
+  }
 }
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

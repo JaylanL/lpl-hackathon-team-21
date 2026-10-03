@@ -224,3 +224,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Playwright browser test output
+web/test-results/
+web/playwright-report/
