@@ -333,9 +333,10 @@ MODEL = BedrockModel(
     model_id=os.environ["MODEL_ID"],
     temperature=0.3,
     max_tokens=1200,
-    guardrail_id=os.environ["GUARDRAIL_ID"],
-    guardrail_version=os.environ["GUARDRAIL_VERSION"],
-    guardrail_latest_message=True,
+    # TODO: Temporarily disable guardrails for debugging; re-enable these settings afterward.
+    # guardrail_id=os.environ["GUARDRAIL_ID"],
+    # guardrail_version=os.environ["GUARDRAIL_VERSION"],
+    # guardrail_latest_message=True,
 )
 
 
