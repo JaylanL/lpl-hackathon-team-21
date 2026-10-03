@@ -749,10 +749,12 @@ def chat(body):
     if req.selected_advisor_id:
         picked = next((a for a in advisors() if a["advisor_id"] == req.selected_advisor_id), None)
         if picked:
-            state = get_state(session_id)
-            if picked["advisor_id"] not in state["matched_ids"]:
-                save_state(session_id, matched_ids=state["matched_ids"] + [picked["advisor_id"]])
-            message += f"\n\n(They picked {picked['name']} from the advisor directory: advisor_id {picked['advisor_id']}.)"
+            remember_advisor(picked)
+            if not req.booking:
+                message += (f"\n\n(They already chose {picked['name']} (advisor_id {picked['advisor_id']}, a real advisor "
+                            f"from our list); the app showed them a booking form for a date, time and topic. Don't ask "
+                            f"which advisor they want or suggest others unless they ask. If they give a day and time, "
+                            f"book {picked['name']} with book_meeting; otherwise ask for whatever is still missing.)")
     # Booking form: create the booking deterministically, then let the agent write the briefing and prep kit.
     if req.booking:
         form = req.booking

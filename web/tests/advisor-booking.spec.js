@@ -96,6 +96,7 @@ test('match cards: "Choose this advisor" books each suggested advisor', async ({
   await page.click("#send");
   await expect(page.locator(".match")).toHaveCount(3);
   for (const advisor of ADVISORS.slice(0, 3)) {
+    if (await page.locator("#matches .show-all").count()) await page.click("#matches .show-all");  // choosing hides the others
     await page.locator(".match", { hasText: advisor.name }).locator(".choose").click();
     await bookFromOpenForm(page, advisor.name);
   }

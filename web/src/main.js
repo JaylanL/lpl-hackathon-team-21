@@ -64,6 +64,8 @@ const T = {
       focus: (v) => v, availability: (n) => `${n} open slot${n === 1 ? "" : "s"}`,
     },
     more: "More", less: "Less", moreAbout: (n) => `More about ${n}`,
+    showAll: "Show all 3 matches", yourChoice: "Your choice", meetingWord: { virtual: "virtual", "in-person": "in-person", or: "or" },
+    chosenFollowUp: (n, types) => `Great choice! **${n}** offers ${types} meetings. Pick a day and time in the booking form, and add what you'd like to talk about. You can also just tell me here, like "Thursday at 3pm".`,
     driversNote: "Ranked mostly by", drivers: { expertise: "fit with your goals", language: "language", meeting: "meeting type", availability: "availability" },
     feeLabel: "How they're paid", formCrs: "You'll get a Form CRS: a short summary of services, fees and conflicts of interest.",
   },
@@ -116,6 +118,8 @@ const T = {
       focus: (v) => v, availability: (n) => `${n} cita${n === 1 ? "" : "s"} libre${n === 1 ? "" : "s"}`,
     },
     more: "Más", less: "Menos", moreAbout: (n) => `Más sobre ${n}`,
+    showAll: "Ver las 3 opciones", yourChoice: "Su elección", meetingWord: { virtual: "virtuales", "in-person": "presenciales", or: "o" },
+    chosenFollowUp: (n, types) => `¡Buena elección! **${n}** ofrece reuniones ${types}. Elija una fecha y una hora en el formulario de reserva y añada de qué le gustaría hablar. También puede decírmelo aquí, por ejemplo "el jueves a las 3pm".`,
     driversNote: "Clasificado principalmente por", drivers: { expertise: "afinidad con sus metas", language: "idioma", meeting: "tipo de reunión", availability: "disponibilidad" },
     feeLabel: "Cómo cobra", formCrs: "Recibirá un Form CRS: un resumen breve de servicios, costos y conflictos de interés.",
   },
@@ -153,12 +157,15 @@ const T = {
       focus: (v) => v, availability: (n) => `${n} 个空档`,
     },
     more: "更多", less: "收起", moreAbout: (n) => `关于 ${n} 的更多信息`, choose: "选择这位顾问",
+    chooseMsg: (n) => `我想和 ${n} 见面。`,
+    showAll: "显示全部 3 位", yourChoice: "您的选择", meetingWord: { virtual: "线上", "in-person": "面对面", or: "或" },
+    chosenFollowUp: (n, types) => `好选择！**${n}** 提供${types}会面。请在预约表中选择日期和时间，并写下您想谈的内容。您也可以直接在这里告诉我，例如“周四下午3点”。`,
     driversNote: "主要排序依据", drivers: { expertise: "与您目标的契合度", language: "语言", meeting: "会议方式", availability: "可预约时间" },
     feeLabel: "收费方式", formCrs: "您将收到 Form CRS：一份关于服务、费用和利益冲突的简短说明。",
   },
 };
 const LANGUAGE_NAMES = { en: "English", es: "Spanish", zh: "Mandarin" };
-const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null, lastMatches: [], bookings: [], booking: null };
+const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null, lastMatches: [], bookings: [], booking: null, chosenAdvisor: null };
 const t = (k) => (T[state.lang] ?? T.en)[k] ?? T.en[k];
 
 function applyI18n() {
@@ -370,11 +377,12 @@ async function send(text, extra = {}) {
   $("#msg").value = "";
   const typing = addMsg("bot", t("thinking"), { cls: "typing" });
   try {
-    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...extra });
+    const chosen = state.chosenAdvisor ? { selected_advisor_id: state.chosenAdvisor.advisor_id } : {};
+    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...chosen, ...extra });
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
-    if (res.matches) renderMatches((state.lastMatches = res.matches));
+    if (res.matches) { state.chosenAdvisor = null; renderMatches((state.lastMatches = res.matches)); }
     if (res.booking) saveBookingLocally(res.booking);
     if (state.autoread) speak(res.reply);
   } catch (e) {
@@ -437,15 +445,50 @@ function renderMatches(list) {
       more.setAttribute("aria-expanded", String(open));
       more.textContent = `${t(open ? "less" : "more")} ${open ? "▴" : "▾"}`;
     };
-    card.querySelector(".choose").onclick = () => openBookingForm(a);
+    card.dataset.advisorId = a.advisor_id;
+    card.querySelector(".choose").onclick = () => chooseMatch(a);
     wirePhotoFallbacks(card);
     box.appendChild(card);
   });
+  applyChoice();
   // On narrow screens the matches sit below the chat: bring all three into view together.
   const side = $(".side");
   if (side.getBoundingClientRect().top > innerHeight * 0.6) {
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     side.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }
+}
+
+// Choosing one of the three matches: hide the other two (they stay in All advisors), and show the choice
+// plus one follow-up question in the chat. No AI call here; the next chat message says who was chosen.
+function chooseMatch(a) {
+  if (state.chosenAdvisor?.advisor_id !== a.advisor_id) {
+    state.chosenAdvisor = a;
+    const L = T[state.lang] ?? T.en;
+    const words = L.meetingWord ?? T.en.meetingWord;
+    const types = (a.meeting_types || []).map((m) => words[m] ?? m).join(` ${words.or} `);
+    addMsg("user", (L.chooseMsg ?? T.en.chooseMsg)(a.name));
+    addMsg("bot", (L.chosenFollowUp ?? T.en.chosenFollowUp)(a.name, types));
+    applyChoice();
+  }
+  openBookingForm(a);
+}
+
+function applyChoice() {
+  const box = $("#matches");
+  const chosenId = state.chosenAdvisor?.advisor_id;
+  const inList = chosenId && box.querySelector(`.match[data-advisor-id="${chosenId}"]`);
+  box.querySelectorAll(".match").forEach((card) => {
+    const isChosen = inList && card.dataset.advisorId === chosenId;
+    card.hidden = Boolean(inList) && !isChosen;
+    card.classList.toggle("chosen", Boolean(isChosen));
+    card.querySelector(".chosen-label")?.remove();
+    if (isChosen) card.querySelector(".card-title h3").insertAdjacentHTML("afterend", `<div class="chosen-label">${esc(t("yourChoice"))}</div>`);
+  });
+  box.querySelector(".show-all")?.remove();
+  if (inList) {
+    box.insertAdjacentHTML("beforeend", `<button type="button" class="secondary show-all">${esc(t("showAll"))}</button>`);
+    box.querySelector(".show-all").onclick = () => { state.chosenAdvisor = null; applyChoice(); box.querySelector(".match .choose")?.focus(); };
   }
 }
 
