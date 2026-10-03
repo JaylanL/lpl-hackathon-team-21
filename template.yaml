@@ -77,6 +77,10 @@ Resources:
               - Is now a good time to sell my investments?
               - Should I sell my Apple shares and buy Nvidia instead?
               - Allocate 30% of my portfolio to bonds and the rest to tech stocks?
+            InputEnabled: false
+            InputAction: NONE
+            OutputEnabled: true
+            OutputAction: BLOCK
       ContentPolicyConfig:
         FiltersConfig:
           - {Type: HATE, InputStrength: HIGH, OutputStrength: HIGH}
@@ -96,7 +100,7 @@ Resources:
     Type: AWS::Bedrock::GuardrailVersion
     Properties:
       GuardrailIdentifier: !GetAtt Guardrail.GuardrailId
-      Description: v2
+      Description: v3
 
   # ---------------- agent ----------------
   AgentRole:
