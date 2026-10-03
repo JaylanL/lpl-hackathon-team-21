@@ -779,14 +779,6 @@ def lambda_handler(event, context):
             return respond(200, {"session_id": session_id, "reply": str(result).strip(), **extras})
 
         if path == "/speak":
-            text = (body.get("text") or "")[:2900]
-            if not text:
-                return respond(400, {"error": "text is required"})
-            voice = {"es": "Lupe", "zh": "Zhiyu"}.get(body.get("lang"), "Joanna")
-            audio = POLLY.synthesize_speech(Text=text, OutputFormat="mp3", VoiceId=voice, Engine="neural")
-            return chat(body)
-
-        if path == "/speak":
             req = SpeakRequest(**body)
             voice = "Zhiyu" if req.lang == "zh" else "Lupe" if req.lang == "es" else "Joanna"
             audio = POLLY.synthesize_speech(Text=req.text[:2900], OutputFormat="mp3", VoiceId=voice, Engine="neural")
