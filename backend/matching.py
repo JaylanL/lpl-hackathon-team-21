@@ -185,7 +185,7 @@ def fee_disclosure(advisor):
 
 
 # ---------- advisor directory (browse every advisor, not only the top 3) ----------
-DIRECTORY_FIELDS = ("advisor_id", "name", "city", "languages", "meeting_types", "focus", "bio", "open_slots")
+DIRECTORY_FIELDS = ("advisor_id", "name", "city", "languages", "meeting_types", "focus", "bio", "open_slots", "photo_url")
 
 
 def directory(advisors, language="", meeting_type="", text=""):

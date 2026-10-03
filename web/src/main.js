@@ -1,5 +1,6 @@
 import "./style.css";
 import { startDictation } from "./dictation.js";
+import { advisorPicture, wirePhotoFallbacks } from "./avatar.js";
 
 // ---------- config ----------
 let CFG = { apiUrl: "", region: "us-east-1", identityPoolId: "" };
@@ -236,7 +237,7 @@ function renderMatches(list) {
     const drivers = (a.drivers || []).map((d) => t("drivers")[d] ?? d).join(", ");
     const d = a.disclosure;
     card.innerHTML = `
-      <h3>${esc(a.name)}${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3>
+      <div class="card-head">${advisorPicture(a, esc)}<h3>${esc(a.name)}${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3></div>
       ${a.match_score != null ? `<div class="score">${esc(t("matchScore")(a.match_score))}</div>` : ""}
       <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
       <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
@@ -246,6 +247,7 @@ function renderMatches(list) {
       <a href="${a.brokercheck_url}" target="_blank" rel="noopener">${t("verify")} ↗</a>
       <button class="secondary choose" type="button">${t("choose")}</button>`;
     card.querySelector(".choose").onclick = () => send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name));
+    wirePhotoFallbacks(card);
     box.appendChild(card);
   });
 }
@@ -306,7 +308,7 @@ function renderDirectory() {
     const card = document.createElement("article");
     card.className = "match dir-card";
     card.innerHTML = `
-      <h3>${esc(a.name)}</h3>
+      <div class="card-head">${advisorPicture(a, esc)}<h3>${esc(a.name)}</h3></div>
       <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
       <div class="slots ${a.open_slots > 0 ? "open" : ""}">${esc(t("openSlots")(a.open_slots))}</div>
       <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
@@ -318,6 +320,7 @@ function renderDirectory() {
       showView("investor");
       send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name), a.advisor_id);
     };
+    wirePhotoFallbacks(card);
     box.appendChild(card);
   });
 }

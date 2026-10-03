@@ -19,6 +19,8 @@ Optional: `ALERT_EMAIL=you@example.com bash deploy.sh` turns on alarm emails and
 - Ranking, PII screen, match reasons: backend/matching.py (tests: `cd backend && python -m pytest -q tests`)
 - Booking -> CRM sync consumer: backend/crm_sync.py
 - Demo advisors: seed/seed.py (all fictional)
+- Advisor pictures: generated initials avatars by default. To use licensed headshots, add
+  web/public/advisors/<advisor_id>.jpg, rebuild the web app, then `RESEED=1 bash deploy.sh`
 - Web app: web/src (Vite). After edits: cd web && npm install && npm run build, then bash deploy.sh
 - Infrastructure: template.yaml
 

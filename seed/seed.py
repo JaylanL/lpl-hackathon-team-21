@@ -4,6 +4,7 @@ Usage: python3 seed.py <data-bucket> [region]
 All names are invented demo data, not real advisors.
 """
 import json
+import pathlib
 import random
 import sys
 
@@ -78,6 +79,15 @@ while len(advisors) < 42:
         "bio": f"Works mostly with {focus[0]} and {focus[1]}. Plain-language, patient, education-first.",
     })
     i += 1
+
+# Optional headshots: drop licensed photos at web/public/advisors/<advisor_id>.jpg (or .png/.webp).
+# Advisors without one get a generated initials avatar in the web app. Do not use photos of real
+# people for these fictional advisors unless the license allows it.
+PHOTO_DIR = pathlib.Path(__file__).resolve().parent.parent / "web" / "public" / "advisors"
+for a in advisors:
+    photo = next((p for ext in ("jpg", "png", "webp") if (p := PHOTO_DIR / f"{a['advisor_id']}.{ext}").exists()), None)
+    if photo:
+        a["photo_url"] = f"/advisors/{photo.name}"
 
 for n, a in enumerate(advisors, 1):
     a["embedding"] = embed(f"{a['bio']} Focus: {', '.join(a['focus'])}. Languages: {', '.join(a['languages'])}.")

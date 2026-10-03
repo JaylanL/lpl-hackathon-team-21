@@ -104,3 +104,9 @@ def test_directory_filters_and_hides_embeddings():
     assert [a["advisor_id"] for a in matching.directory(pool, meeting_type="In person")] == ["adv-2"]
     assert [a["advisor_id"] for a in matching.directory(pool, text="FIRST home")] == ["adv-1"]
     assert matching.directory(pool, text="nobody") == []
+
+
+def test_directory_passes_photo_url_only_when_present():
+    with_photo = adv(1, [1, 0], photo_url="/advisors/adv-1.jpg")
+    items = matching.directory([with_photo, adv(2, [0, 1])])
+    assert items[0]["photo_url"] == "/advisors/adv-1.jpg" and "photo_url" not in items[1]
