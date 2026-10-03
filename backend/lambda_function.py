@@ -405,7 +405,7 @@ def lambda_handler(event, context):
 
         if path == "/speak":
             req = SpeakRequest(**body)
-            voice = "Lupe" if req.lang == "es" else "Joanna"
+            voice = "Zhiyu" if req.lang == "zh" else "Lupe" if req.lang == "es" else "Joanna"
             audio = POLLY.synthesize_speech(Text=req.text[:2900], OutputFormat="mp3", VoiceId=voice, Engine="neural")
             return respond(200, {"audio_b64": base64.b64encode(audio["AudioStream"].read()).decode()})
 

@@ -60,6 +60,11 @@ advisors = [
      "open_slots": 4, "fee_model": "Fee-only (flat planning fee)", "platform": "Model portfolios (MWP)",
      "bio": "Works with recent grads balancing student loans, a first 401(k) and building savings. "
             "Education-first and plain-language."},
+    {"advisor_id": "adv-903", "name": "Mei Lin", "city": "San Diego, CA", "zip": "92101",
+     "languages": ["English", "Mandarin"], "meeting_types": ["virtual", "in-person"],
+     "focus": ["young professionals and first-time investors", "first-time home buyers"],
+     "open_slots": 5, "fee_model": "Fee-only (flat planning fee)", "platform": "Model portfolios (MWP)",
+     "bio": "Bilingual (English/Mandarin). Helps first-time investors and families new to the US financial system. Patient and jargon-free."},
 ]
 used = {a["name"] for a in advisors}
 i = 0
