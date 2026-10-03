@@ -125,8 +125,8 @@ html.contrast .msg.bot { border: 1px solid #fff; }
 .crm.ok { color: var(--good); border-color: currentColor; }
 .card-head { display: flex; align-items: center; gap: 10px; }
 .card-head h3 { min-width: 0; }
-.avatar-wrap { flex: 0 0 48px; width: 48px; height: 48px; }
-.avatar { display: block; width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+.avatar-wrap { flex: 0 0 56px; width: 56px; height: 56px; }
+.avatar { display: block; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; }
 html.contrast .avatar { outline: 2px solid var(--line); }
 .dir-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 8px 0 4px; }
 .dir-filters label { display: grid; gap: 4px; font-size: .85rem; font-weight: 600; color: var(--ink-2); }
