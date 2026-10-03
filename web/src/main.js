@@ -263,14 +263,8 @@ function addMsg(role, text, opts = {}) {
     div.append(avatar, body);
   } else div.append(body);
   if (role === "bot" && !opts.cls) {
-    const b = document.createElement("button");
-    b.className = "speak";
-    b.type = "button";
-    b.textContent = "🔊 " + t("readAloud");
-    b.setAttribute("aria-label", t("readAloud"));
-    b.onclick = () => speak(div.querySelector(".msg-body")?.dataset.speakText || text);
     body.dataset.speakText = text;
-    body.appendChild(b);
+    body.appendChild(createSpeakButton(() => body.dataset.speakText || text));
   }
   chat().appendChild(div);
   chat().scrollTop = chat().scrollHeight;
@@ -284,14 +278,30 @@ function renderMessageText(div, text) {
   body.dataset.speakText = text;
   body.innerHTML = role === "bot" ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
   if (role === "bot") {
-    const button = document.createElement("button");
-    button.className = "speak";
-    button.type = "button";
-    button.textContent = "🔊 " + t("readAloud");
-    button.setAttribute("aria-label", t("readAloud"));
-    button.onclick = () => speak(body.dataset.speakText);
-    body.appendChild(button);
+    body.appendChild(createSpeakButton(() => body.dataset.speakText));
   }
+}
+
+function createSpeakButton(getText) {
+  const button = document.createElement("button");
+  button.className = "speak";
+  button.type = "button";
+  setSpeakButtonState(button, false);
+  button.onclick = () => {
+    if (activeSpeakButton === button) {
+      stopSpeaking();
+      return;
+    }
+    stopSpeaking();
+    speak(getText(), button);
+  };
+  return button;
+}
+
+function setSpeakButtonState(button, active) {
+  button.textContent = active ? "⏹ " + t("readAloud") : "🔊 " + t("readAloud");
+  button.setAttribute("aria-label", active ? "Stop " + t("readAloud") : t("readAloud"));
+  button.setAttribute("aria-pressed", String(active));
 }
 
 async function translateChatHistory() {
@@ -307,17 +317,42 @@ async function translateChatHistory() {
 }
 
 let audioEl = null;
-async function speak(text) {
+let activeSpeakButton = null;
+let speakRequest = 0;
+function stopSpeaking() {
+  speakRequest++;
+  if (audioEl) {
+    audioEl.pause();
+    audioEl = null;
+  }
+  if (activeSpeakButton) setSpeakButtonState(activeSpeakButton, false);
+  activeSpeakButton = null;
+}
+async function speak(text, button) {
+  const request = ++speakRequest;
   try {
     const cleanText = plain(text).trim();
     if (!cleanText) return;
     const { audio_b64 } = await post("/speak", { text: cleanText, lang: state.lang });
+    if (request !== speakRequest) return;
     if (!audio_b64) throw new Error("Speech audio was not returned by the server");
-    if (audioEl) audioEl.pause();
     audioEl = new Audio("data:audio/mpeg;base64," + audio_b64);
-    audioEl.onended = () => { audioEl = null; };
+    activeSpeakButton = button || null;
+    if (button) setSpeakButtonState(button, true);
+    audioEl.onended = () => {
+      if (request !== speakRequest) return;
+      audioEl = null;
+      activeSpeakButton = null;
+      if (button) setSpeakButtonState(button, false);
+    };
     await audioEl.play();
   } catch (e) {
+    if (request !== speakRequest) return;
+    if (activeSpeakButton === button) {
+      activeSpeakButton = null;
+      audioEl = null;
+      if (button) setSpeakButtonState(button, false);
+    }
     console.warn("[speak]", e);
     $("#live-hint").textContent = `Read aloud unavailable: ${e.message}`;
   }
@@ -949,7 +984,10 @@ async function init() {
     });
   };
   $("#pref-contrast").onchange = (e) => document.documentElement.classList.toggle("contrast", e.target.checked);
-  $("#pref-autoread").onchange = (e) => (state.autoread = e.target.checked);
+  $("#pref-autoread").onchange = (e) => {
+    state.autoread = e.target.checked;
+    if (!state.autoread && audioEl) stopSpeaking();
+  };
   $("#settings-toggle").onclick = () => {
     const open = $("#settings-panel").classList.toggle("open");
     $("#settings-toggle").setAttribute("aria-expanded", open);
