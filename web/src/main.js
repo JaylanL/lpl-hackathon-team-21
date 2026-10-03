@@ -59,6 +59,11 @@ const T = {
       focus: (v) => `Focuses on ${v}`,
       availability: (n) => `${n} open first-meeting slot${n === 1 ? "" : "s"}`,
     },
+    reasonShort: {
+      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "In person" : "Virtual"),
+      focus: (v) => v, availability: (n) => `${n} open slot${n === 1 ? "" : "s"}`,
+    },
+    more: "More", less: "Less", moreAbout: (n) => `More about ${n}`,
     driversNote: "Ranked mostly by", drivers: { expertise: "fit with your goals", language: "language", meeting: "meeting type", availability: "availability" },
     feeLabel: "How they're paid", formCrs: "You'll get a Form CRS: a short summary of services, fees and conflicts of interest.",
   },
@@ -106,6 +111,11 @@ const T = {
       focus: (v) => `Se especializa en: ${v}`,
       availability: (n) => `${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}`,
     },
+    reasonShort: {
+      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "Presencial" : "Virtual"),
+      focus: (v) => v, availability: (n) => `${n} cita${n === 1 ? "" : "s"} libre${n === 1 ? "" : "s"}`,
+    },
+    more: "Más", less: "Menos", moreAbout: (n) => `Más sobre ${n}`,
     driversNote: "Clasificado principalmente por", drivers: { expertise: "afinidad con sus metas", language: "idioma", meeting: "tipo de reunión", availability: "disponibilidad" },
     feeLabel: "Cómo cobra", formCrs: "Recibirá un Form CRS: un resumen breve de servicios, costos y conflictos de interés.",
   },
@@ -138,6 +148,11 @@ const T = {
       focus: (v) => `专注于：${v}`,
       availability: (n) => `${n} 个可预约时段`,
     },
+    reasonShort: {
+      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "面对面" : "线上"),
+      focus: (v) => v, availability: (n) => `${n} 个空档`,
+    },
+    more: "更多", less: "收起", moreAbout: (n) => `关于 ${n} 的更多信息`, choose: "选择这位顾问",
     driversNote: "主要排序依据", drivers: { expertise: "与您目标的契合度", language: "语言", meeting: "会议方式", availability: "可预约时间" },
     feeLabel: "收费方式", formCrs: "您将收到 Form CRS：一份关于服务、费用和利益冲突的简短说明。",
   },
@@ -297,12 +312,14 @@ async function send(text, extra = {}) {
 }
 
 // Explainable match notes: deterministic reasons from the ranking, rendered in the user's language.
-function reasonText(r) {
+function reasonText(r, kind = "reason") {
   const L = T[state.lang] ?? T.en;
-  const fn = (L.reason ?? T.en.reason)[r.code];
+  const fn = (L[kind] ?? T.en[kind])[r.code];
   return fn ? fn(r.value, L.langNames ? L : T.en) : "";
 }
 
+// Compact cards so all three matches fit on one screen; the full details sit behind "More".
+let moreId = 0;
 function renderMatches(list) {
   $("#matches-announcement").textContent = t("matchesAnnounce")(list.length);
   const box = $("#matches");
@@ -310,22 +327,49 @@ function renderMatches(list) {
   list.forEach((a) => {
     const card = document.createElement("article");
     card.className = "match";
-    const reasons = (a.reasons || []).map(reasonText).filter(Boolean);
+    const reasons = (a.reasons || []).map((r) => reasonText(r)).filter(Boolean);
+    const short = (a.reasons || []).map((r) => reasonText(r, "reasonShort")).filter(Boolean).join(" · ");
     const drivers = (a.drivers || []).map((d) => t("drivers")[d] ?? d).join(", ");
     const d = a.disclosure;
+    const fee = d ? `${d.fee_model} · ${d.platform}` : "";
+    const id = `match-more-${++moreId}`;
     card.innerHTML = `
-      <div class="card-head">${advisorPicture(a, esc)}<h3>${esc(a.name)}${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3></div>
-      ${a.match_score != null ? `<div class="score">${esc(t("matchScore")(a.match_score))}</div>` : ""}
-      <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
-      <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
-      ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
-      <p class="meta">${esc(a.bio)}</p>
-      ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model)} · ${esc(d.platform)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
-      <button class="secondary choose" type="button">${t("choose")}</button>`;
+      <div class="card-head">${advisorPicture(a, esc)}
+        <div class="card-title">
+          <h3><span class="name" title="${esc(a.name)}">${esc(a.name)}</span>${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3>
+          <div class="meta one-line">${a.match_score != null ? `<span class="score">${esc(t("matchScore")(a.match_score))}</span> · ` : ""}${esc(a.city)}</div>
+        </div>
+      </div>
+      ${short ? `<div class="one-line why-short" title="${esc(reasons.join(" · "))}">${esc(short)}</div>` : ""}
+      ${fee ? `<div class="one-line fee-short" title="${esc(fee)}"><strong>${esc(t("feeLabel"))}:</strong> ${esc(fee)}</div>` : ""}
+      <div class="match-actions">
+        <button class="secondary more" type="button" aria-expanded="false" aria-controls="${id}" aria-label="${esc(t("moreAbout")(a.name))}">${esc(t("more"))} ▾</button>
+        <button class="secondary choose" type="button">${esc(t("choose"))}</button>
+      </div>
+      <div class="match-more" id="${id}" hidden>
+        <div class="meta">${esc(a.meeting_types.join(" / "))}</div>
+        <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
+        ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
+        <p class="meta">${esc(a.bio)}</p>
+        ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(fee)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
+      </div>`;
+    const more = card.querySelector(".more"), panel = card.querySelector(".match-more");
+    more.onclick = () => {
+      const open = panel.hidden;
+      panel.hidden = !open;
+      more.setAttribute("aria-expanded", String(open));
+      more.textContent = `${t(open ? "less" : "more")} ${open ? "▴" : "▾"}`;
+    };
     card.querySelector(".choose").onclick = () => openBookingForm(a);
     wirePhotoFallbacks(card);
     box.appendChild(card);
   });
+  // On narrow screens the matches sit below the chat: bring all three into view together.
+  const side = $(".side");
+  if (side.getBoundingClientRect().top > innerHeight * 0.6) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    side.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" });
+  }
 }
 
 // ---------- booking: pick a date, a time and what the meeting is about ----------
