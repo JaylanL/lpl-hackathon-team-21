@@ -78,7 +78,7 @@ function startWebSpeech(lang, onText) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) throw new Error("Speech recognition not supported in this browser");
   const rec = new SR();
-  rec.lang = lang === "es" ? "es-US" : "en-US";
+  rec.lang = lang === "es" ? "es-US" : lang === "zh" ? "zh-CN" : "en-US";
   rec.interimResults = true;
   rec.continuous = true;
   rec.onresult = (e) => {
