@@ -50,7 +50,7 @@ async function startTranscribe(cfg, onText) {
   try {
     const res = await getClient(cfg).send(new StartStreamTranscriptionCommand({
       IdentifyLanguage: true,
-      LanguageOptions: "en-US,es-US",
+      LanguageOptions: "en-US,es-US,zh-CN",
       MediaEncoding: "pcm",
       MediaSampleRateHertz: 16000,
       AudioStream: audio(),

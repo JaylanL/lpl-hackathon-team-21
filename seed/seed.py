@@ -48,6 +48,10 @@ advisors = [
      "focus": ["young professionals and first-time investors", "first-time home buyers"], "open_slots": 5,
      "bio": "Bilingual (English/Spanish). Specializes in first-time investors and saving for a first home. "
             "Patient, jargon-free, offers evening virtual meetings."},
+    {"advisor_id": "adv-903", "name": "Mei Lin", "city": "San Diego, CA", "zip": "92101",
+     "languages": ["English", "Mandarin"], "meeting_types": ["virtual", "in-person"],
+     "focus": ["young professionals and first-time investors", "first-time home buyers"], "open_slots": 5,
+     "bio": "Bilingual (English/Mandarin). Helps first-time investors and families new to the US financial system. Patient and jargon-free."},
     {"advisor_id": "adv-902", "name": "Jordan Ellis", "city": "Charlotte, NC", "zip": "28202",
      "languages": ["English"], "meeting_types": ["virtual"],
      "focus": ["student loan payoff and early retirement saving", "young professionals and first-time investors"],

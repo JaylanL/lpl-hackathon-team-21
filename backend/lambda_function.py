@@ -38,7 +38,7 @@ find the right financial advisor and feel ready for their first meeting.
 How to talk:
 - Ask ONE short question at a time. Keep replies under 80 words unless explaining a term.
 - Use plain words a 6th grader understands. If you must use a financial term, explain it in one sentence.
-- Always reply in the same language the user writes in (English or Spanish).
+- Always reply in the same language the user writes in (English, Spanish, or chinese).
 
 What to learn before matching (ask naturally, skip what they already told you):
 1. Their main goal (e.g., buy a home, pay off loans, start saving for retirement)
@@ -131,7 +131,8 @@ def search_advisors(needs: str, language: str = "English", meeting_type: str = "
         meeting_type: "virtual" or "in-person".
     """
     q = embed(needs)
-    lang = language.strip().capitalize()
+    lambda_handlerang = language.strip().capitalize()
+    lang = {"Chinese": "Mandarin", "中文": "Mandarin", "Español": "Spanish", "Spanish": "Spanish"}.get(lang, lang)
     mt = "in-person" if "person" in meeting_type.lower() else "virtual"
     pool = [a for a in advisors() if lang in a["languages"] and mt in a["meeting_types"] and a["open_slots"] > 0]
     if len(pool) < 3:  # relax filters rather than return nothing
@@ -232,6 +233,9 @@ def lambda_handler(event, context):
                 log_event("intake_started", session_id)
             if body.get("simple"):
                 message += "\n\n(Please explain in very simple words.)"
+                lang_hint = {"es": "Spanish", "zh": "Simplified Chinese"}.get(body.get("lang"))
+                if lang_hint:
+                    message += f"\n\n(Please reply in {lang_hint}.)"
             agent = Agent(
                 model=MODEL,
                 system_prompt=SYSTEM_PROMPT,
@@ -247,7 +251,7 @@ def lambda_handler(event, context):
             text = (body.get("text") or "")[:2900]
             if not text:
                 return respond(400, {"error": "text is required"})
-            voice = "Lupe" if body.get("lang") == "es" else "Joanna"
+            voice = {"es": "Lupe", "zh": "Zhiyu"}.get(body.get("lang"), "Joanna")
             audio = POLLY.synthesize_speech(Text=text, OutputFormat="mp3", VoiceId=voice, Engine="neural")
             return respond(200, {"audio_b64": base64.b64encode(audio["AudioStream"].read()).decode()})
 
