@@ -247,6 +247,8 @@ const chat = () => $("#chat");
 function addMsg(role, text, opts = {}) {
   const div = document.createElement("div");
   div.className = `msg ${role}${opts.cls ? " " + opts.cls : ""}`;
+  div.dataset.sourceText = text;
+  div.dataset.messageRole = role;
   const body = document.createElement("div");
   body.className = "msg-body";
   body.innerHTML = role === "bot" && !opts.cls ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
@@ -263,12 +265,42 @@ function addMsg(role, text, opts = {}) {
     b.type = "button";
     b.textContent = "🔊 " + t("readAloud");
     b.setAttribute("aria-label", t("readAloud"));
-    b.onclick = () => speak(text);
+    b.onclick = () => speak(div.querySelector(".msg-body")?.dataset.speakText || text);
+    body.dataset.speakText = text;
     body.appendChild(b);
   }
   chat().appendChild(div);
   chat().scrollTop = chat().scrollHeight;
   return div;
+}
+
+function renderMessageText(div, text) {
+  const role = div.dataset.messageRole;
+  const body = div.querySelector(".msg-body");
+  if (!body) return;
+  body.dataset.speakText = text;
+  body.innerHTML = role === "bot" ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
+  if (role === "bot") {
+    const button = document.createElement("button");
+    button.className = "speak";
+    button.type = "button";
+    button.textContent = "🔊 " + t("readAloud");
+    button.setAttribute("aria-label", t("readAloud"));
+    button.onclick = () => speak(body.dataset.speakText);
+    body.appendChild(button);
+  }
+}
+
+async function translateChatHistory() {
+  const messages = [...chat().querySelectorAll(".msg[data-source-text]")].filter((div) => !div.classList.contains("typing") && !div.classList.contains("error"));
+  await Promise.all(messages.map(async (div) => {
+    try {
+      const result = await post("/translate", { text: div.dataset.sourceText, lang: state.lang });
+      renderMessageText(div, result.text);
+    } catch (e) {
+      console.warn("[translate] keeping original message", e);
+    }
+  }));
 }
 
 let audioEl = null;
@@ -853,6 +885,7 @@ async function init() {
       option.setAttribute("aria-pressed", active);
     });
     applyI18n();
+    translateChatHistory();
     if ($("#matches .match")) renderMatches(state.lastMatches || []);
     renderDirectory();
     if (state.booking && $("#booking .booking-card")) renderBooking(state.booking);
