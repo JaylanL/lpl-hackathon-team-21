@@ -1,6 +1,7 @@
 import "./style.css";
 import { startDictation } from "./dictation.js";
 import { advisorPicture, wirePhotoFallbacks } from "./avatar.js";
+import { GLOSSARY, tagTerms } from "./glossary.js";
 
 // ---------- config ----------
 let CFG = { apiUrl: "", region: "us-east-1", identityPoolId: "" };
@@ -34,6 +35,7 @@ const T = {
     readAloud: "Read aloud", thinking: "Thinking…", listening: "Listening… speak now. Tap the mic again to stop.",
     micStart: "Start speaking", micStop: "Stop speaking", choose: "Choose this advisor",
     booked: "You're booked!", with: "with", when: "When", chooseMsg: (n) => `I'd like to meet with ${n}.`,
+    matchesAnnounce: (n) => `${n} advisors matched`,
     error: "Sorry, something went wrong. Please try again.",
     tabDirectory: "All advisors", dirTitle: "All advisors", dirLead: "Browse every advisor, not just your top matches. Filter by language or meeting type, then ask to meet anyone who looks right.",
     dirLanguage: "Language", dirMeeting: "Meeting type", dirAny: "Any", dirVirtual: "Virtual", dirInPerson: "In person", dirSearch: "Search", dirSearchPh: "e.g. home buyers, Miami",
@@ -70,6 +72,7 @@ const T = {
     readAloud: "Leer en voz alta", thinking: "Pensando…", listening: "Escuchando… hable ahora. Toque el micrófono otra vez para parar.",
     micStart: "Empezar a hablar", micStop: "Dejar de hablar", choose: "Elegir este asesor",
     booked: "¡Cita reservada!", with: "con", when: "Cuándo", chooseMsg: (n) => `Me gustaría reunirme con ${n}.`,
+    matchesAnnounce: (n) => `${n} asesores encontrados`,
     error: "Lo siento, algo salió mal. Intente de nuevo.",
     tabDirectory: "Todos los asesores", dirTitle: "Todos los asesores", dirLead: "Vea a todos los asesores, no solo sus mejores coincidencias. Filtre por idioma o tipo de reunión y pida reunirse con quien le parezca bien.",
     dirLanguage: "Idioma", dirMeeting: "Tipo de reunión", dirAny: "Cualquiera", dirVirtual: "Virtual", dirInPerson: "Presencial", dirSearch: "Buscar", dirSearchPh: "p. ej. compradores de casa, Miami",
@@ -141,6 +144,58 @@ function md(text) {
 }
 const plain = (s) => s.replace(/\*\*|__|#+\s|[*_`]/g, "").replace(/^\s*[-•]\s+/gm, "");
 
+let termTipId = 0;
+function tagGlossaryTerms(html, text) {
+  const matches = tagTerms(text);
+  if (!matches.length) return html;
+
+  // Walk Markdown's HTML text nodes, mapping their escaped text back to the
+  // source string so inline formatting and block structure remain intact.
+  const root = document.createElement("div");
+  root.innerHTML = html;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+
+  let rawCursor = 0;
+  let matchIndex = 0;
+  for (const node of nodes) {
+    const sourceText = node.nodeValue;
+    let sourceStart = text.indexOf(sourceText, rawCursor);
+    if (sourceStart < 0) continue;
+    rawCursor = sourceStart + sourceText.length;
+    const fragments = document.createDocumentFragment();
+    let cursor = 0;
+    while (matchIndex < matches.length) {
+      const match = matches[matchIndex];
+      if (match.start < sourceStart) { matchIndex++; continue; }
+      if (match.start >= sourceStart + sourceText.length) break;
+      const start = match.start - sourceStart;
+      const end = match.end - sourceStart;
+      fragments.append(document.createTextNode(sourceText.slice(cursor, start)));
+      const id = `tip-${++termTipId}`;
+      const button = document.createElement("button");
+      button.className = "term";
+      button.setAttribute("aria-describedby", id);
+      button.setAttribute("aria-expanded", "false");
+      button.type = "button";
+      button.textContent = sourceText.slice(start, end);
+      const tip = document.createElement("span");
+      tip.id = id;
+      tip.setAttribute("role", "tooltip");
+      tip.className = "term-tip";
+      tip.hidden = true;
+      tip.textContent = GLOSSARY[match.term][state.lang] || GLOSSARY[match.term].en;
+      fragments.append(button, tip);
+      cursor = end;
+      matchIndex++;
+    }
+    fragments.append(document.createTextNode(sourceText.slice(cursor)));
+    node.replaceWith(fragments);
+  }
+  return root.innerHTML;
+}
+
 // ---------- DOM helpers ----------
 const $ = (s) => document.querySelector(s);
 const chat = () => $("#chat");
@@ -149,7 +204,7 @@ function addMsg(role, text, opts = {}) {
   div.className = `msg ${role}${opts.cls ? " " + opts.cls : ""}`;
   const body = document.createElement("div");
   body.className = "msg-body";
-  body.innerHTML = role === "bot" && !opts.cls ? md(text) : `<p>${esc(text)}</p>`;
+  body.innerHTML = role === "bot" && !opts.cls ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
   if (role === "bot") {
     const avatar = document.createElement("span");
     avatar.className = "agent-avatar";
@@ -228,6 +283,7 @@ function reasonText(r) {
 }
 
 function renderMatches(list) {
+  $("#matches-announcement").textContent = t("matchesAnnounce")(list.length);
   const box = $("#matches");
   box.innerHTML = "";
   list.forEach((a) => {
@@ -414,9 +470,33 @@ function showView(name) {
 async function init() {
   try { CFG = { ...CFG, ...(await (await fetch("/config.json", { cache: "no-store" })).json()) }; } catch (_) {}
   const tabs = [...document.querySelectorAll("[role=tab]")];
+  chat().addEventListener("click", (e) => {
+    const button = e.target.closest("button.term");
+    if (!button || !chat().contains(button)) return;
+    const tip = document.getElementById(button.getAttribute("aria-describedby"));
+    if (!tip) return;
+    const expanded = button.getAttribute("aria-expanded") === "true";
+    button.setAttribute("aria-expanded", String(!expanded));
+    tip.hidden = expanded;
+  });
+  chat().addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const button = e.target.closest("button.term[aria-expanded='true']");
+    if (!button) return;
+    const tip = document.getElementById(button.getAttribute("aria-describedby"));
+    button.setAttribute("aria-expanded", "false");
+    if (tip) tip.hidden = true;
+    button.focus();
+  });
   tabs.forEach((b, i) => {
     b.onclick = () => showView(b.dataset.view);
     b.onkeydown = (e) => {
+      if (e.key === "Home" || e.key === "End") {
+        e.preventDefault();
+        const n = tabs[e.key === "Home" ? 0 : tabs.length - 1];
+        n.focus(); showView(n.dataset.view);
+        return;
+      }
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
       const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
       n.focus(); showView(n.dataset.view);

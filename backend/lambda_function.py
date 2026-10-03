@@ -274,6 +274,8 @@ def book_meeting(advisor_id: str, prospect_name: str, time_slot: str) -> dict:
         emit_metric("OutOfInventoryBlocked")
         return {"error": "Unknown advisor_id. Only book one of the advisors returned by search_advisors.",
                 "valid_advisor_ids": state["matched_ids"]}
+    if adv and adv["open_slots"] > 0:
+        adv["open_slots"] -= 1  # reflect reduced availability for the rest of this warm container's life
     booking = {
         "booking_id": uuid.uuid4().hex[:10],
         "advisor_id": advisor_id,
