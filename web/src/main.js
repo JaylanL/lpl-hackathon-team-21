@@ -9,7 +9,7 @@ const api = (path) => CFG.apiUrl.replace(/\/$/, "") + path;
 async function post(path, body = {}) {
   const r = await fetch(api(path), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || data.error || `HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(data.detail || data.error || `HTTP ${r.status}`), { status: r.status });
   return data;
 }
 
@@ -48,7 +48,7 @@ const T = {
     bkSubmit: "Book meeting", bkSave: "Save changes", bkCancel: "Cancel", bkChange: "Change details",
     bkSaved: "Changes saved.", bkWeekdays: "Weekdays only, advisor's local time.", bkPurposeLabel: "Meeting about",
     bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "Cancel meeting", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
+    bkCancelMeeting: "Cancel meeting", bkCalendar: "Add to Google Calendar", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
     bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
     bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
     matchScore: (n) => `${n}% match`, whyFit: "Why this match",
@@ -100,7 +100,7 @@ const T = {
     bkSubmit: "Reservar reunión", bkSave: "Guardar cambios", bkCancel: "Cancelar", bkChange: "Cambiar detalles",
     bkSaved: "Cambios guardados.", bkWeekdays: "Solo días laborables, hora local del asesor.", bkPurposeLabel: "Tema",
     bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "Cancelar reunión", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
+    bkCancelMeeting: "Cancelar reunión", bkCalendar: "Agregar a Google Calendar", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
     bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
     bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
     matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
@@ -137,7 +137,7 @@ const T = {
     bkSubmit: "预约会面", bkSave: "保存更改", bkCancel: "取消", bkChange: "修改详情",
     bkSaved: "更改已保存。", bkWeekdays: "仅限工作日，顾问当地时间。", bkPurposeLabel: "会面主题",
     bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "取消会面", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
+    bkCancelMeeting: "取消会面", bkCalendar: "添加到 Google 日历", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
     bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
     bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
     matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
@@ -231,7 +231,10 @@ function tagGlossaryTerms(html, text) {
       tip.className = "term-tip";
       tip.hidden = true;
       tip.textContent = GLOSSARY[match.term][state.lang] || GLOSSARY[match.term].en;
-      fragments.append(button, tip);
+      const wrap = document.createElement("span");
+      wrap.className = "term-wrap";
+      wrap.append(button, tip);
+      fragments.append(wrap);
       cursor = end;
       matchIndex++;
     }
@@ -423,17 +426,30 @@ function saveBookingLocally(b) {
   try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, bookings: state.bookings })); } catch (_) {}
   renderBookings(state.bookings);
 }
-function restoreBooking() {
+function forgetBooking() {
+  state.booking = null;
+  try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
+}
+// Show the booking saved in this browser only if the server still has it. Cleared, corrupt or blocked
+// storage, or a booking that was deleted or cancelled elsewhere, means there is no booking.
+async function restoreBooking() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null"); } catch (_) { forgetBooking(); return; }
+  if (!saved) return;
+  const { sessionId, booking } = saved;
+  if (!booking?.booking_id || !sessionId) { forgetBooking(); return; }
   try {
-    const saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null");
-    const bookings = saved?.bookings || (saved?.booking ? [saved.booking] : []);
-    if (bookings.length) {
-      state.sessionId = saved.sessionId;
-      state.bookings = bookings.filter((item) => item.status !== "cancelled");
-      state.booking = state.bookings[0];
-      renderBookings(state.bookings);
-    }
-  } catch (_) {}
+    const { booking: latest } = await post("/bookings/get", { booking_id: booking.booking_id, session_id: sessionId });
+    if (!latest || latest.status === "cancelled") { forgetBooking(); return; }
+    state.sessionId = sessionId;
+    saveBookingLocally(latest);
+    renderBooking(latest);
+  } catch (e) {
+    if (e.status) { forgetBooking(); return; }  // the server answered: the booking is gone or not ours
+    state.sessionId = sessionId;  // server unreachable: keep showing what we saved
+    state.booking = booking;
+    renderBooking(booking);
+  }
 }
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -545,7 +561,31 @@ function renderBookings(bookings, notice = "") {
   box.innerHTML = active.map((b) => {
   const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
-  return `
+  const calendarLink = b.meeting_date ? (() => {
+    const [year, month, day] = b.meeting_date.split("-").map(Number);
+    const [hour, minute] = (b.meeting_time || "00:00").split(":").map(Number);
+    const start = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+    const stamp = (date) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}00`;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: `Meeting with ${b.advisor_name || "your advisor"}`,
+      dates: `${stamp(start)}/${stamp(end)}`,
+      details: b.meeting_purpose || "",
+      location: b.location || "",
+    });
+    return `https://calendar.google.com/calendar/render?${params}`;
+  })() : "";
+  const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
+  if (b.status === "cancelled") {
+    // A cancelled meeting simply disappears; screen readers still hear that it was cancelled.
+    $("#booking").innerHTML = "";
+    state.booking = null;
+    try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
+    $("#booking-announcement").textContent = `${t("bkCancelled")}. ${t("bkCancelledNote")}`;
+    return;
+  }
+  $("#booking").innerHTML = `
     <div class="booking-card" role="status">
       <h3>✓ ${t("booked")}</h3>
       <div>${esc(b.prospect_name)} ${t("with")} <strong>${esc(b.advisor_name)}</strong></div>
@@ -553,8 +593,17 @@ function renderBookings(bookings, notice = "") {
       ${b.meeting_purpose ? `<div class="meta">${esc(t("bkPurposeLabel"))}: ${esc(b.meeting_purpose)}</div>` : ""}
       ${notice && b.booking_id === bookings[0].booking_id ? `<p class="saved-note">${esc(notice)}</p>` : ""}
       <div class="bk-actions">
-        ${b.meeting_date ? `<button type="button" class="secondary bk-change" data-booking-id="${esc(b.booking_id)}">${esc(t("bkChange"))}</button>` : ""}
-        <button type="button" class="secondary danger bk-cancel-meeting" data-booking-id="${esc(b.booking_id)}">${esc(t("bkCancelMeeting"))}</button>
+        ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
+        ${calendarLink ? `<a class="secondary" href="${esc(calendarLink)}" target="_blank" rel="noopener">${esc(t("bkCalendar"))}</a>` : ""}
+        <button type="button" class="secondary danger" id="bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
+      </div>
+      <div class="bk-confirm" id="bk-confirm" hidden>
+        <p>${esc(t("bkConfirmCancel")(b.advisor_name))}</p>
+        <div class="bk-actions">
+          <button type="button" class="primary danger" id="bk-yes-cancel">${esc(t("bkYesCancel"))}</button>
+          <button type="button" class="secondary" id="bk-keep">${esc(t("bkKeep"))}</button>
+        </div>
+        <p class="form-error" id="bk-cancel-error" role="alert"></p>
       </div>
       <p class="fineprint">${esc(t("bkChatTip"))}</p>
     </div>`;

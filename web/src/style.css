@@ -88,8 +88,10 @@ html.contrast .msg.bot { border: 1px solid #fff; }
 .msg ul, .msg ol { margin: 4px 0 6px; padding-left: 20px; }
 .term { position: relative; display: inline-block; vertical-align: baseline; margin: 0; padding: 11px 2px; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; line-height: 1.5; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
 .term:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+.term-wrap { position: relative; display: inline-block; }
 .term-tip[hidden] { display: none !important; }
-.term-tip:not([hidden]) { position: absolute; z-index: 20; display: block; width: max-content; max-width: min(260px, calc(100vw - 32px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); box-shadow: 0 4px 14px rgb(0 0 0 / 18%); font-size: .85rem; line-height: 1.4; white-space: normal; }
+.term-tip:not([hidden]) { position: absolute; top: 100%; left: 0; margin-top: 4px; z-index: 20; display: block; width: max-content; max-width: min(260px, calc(100vw - 32px)); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); box-shadow: 0 4px 14px rgb(0 0 0 / 18%); font-size: .85rem; line-height: 1.4; white-space: normal; }
+.term-wrap:hover .term-tip[hidden], .term-wrap:focus-within .term-tip[hidden] { display: block; }
 html.large .term-tip:not([hidden]) { font-size: .85rem; }
 html.contrast .term-tip:not([hidden]) { border-width: 2px; box-shadow: none; }
 .msg .speak { margin-top: 6px; background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 0 12px; font: inherit; font-size: .8rem; cursor: pointer; min-height: 44px; }
