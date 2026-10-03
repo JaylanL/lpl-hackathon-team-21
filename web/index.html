@@ -21,6 +21,7 @@
       </div>
       <nav class="tabs" role="tablist" aria-label="Views">
         <button role="tab" id="tab-investor" aria-controls="view-investor" aria-selected="true" data-view="investor" data-i18n="tabInvestor">Investor</button>
+        <button role="tab" id="tab-directory" aria-controls="view-directory" aria-selected="false" data-view="directory" tabindex="-1" data-i18n="tabDirectory">All advisors</button>
         <button role="tab" id="tab-advisor" aria-controls="view-advisor" aria-selected="false" data-view="advisor" tabindex="-1" data-i18n="tabAdvisor">Advisor</button>
         <button role="tab" id="tab-dashboard" aria-controls="view-dashboard" aria-selected="false" data-view="dashboard" tabindex="-1" data-i18n="tabDashboard">Business dashboard</button>
       </nav>
@@ -89,6 +90,29 @@
             <div id="booking"></div>
           </aside>
         </div>
+      </section>
+
+      <!-- Advisor directory -->
+      <section id="view-directory" role="tabpanel" aria-labelledby="tab-directory" class="view" hidden>
+        <div class="section-head">
+          <div>
+            <h1 class="h1" data-i18n="dirTitle">All advisors</h1>
+            <p class="lead" data-i18n="dirLead">Browse every advisor, not just your top matches. Filter by language or meeting type, then ask to meet anyone who looks right.</p>
+          </div>
+        </div>
+        <form id="dir-filters" class="dir-filters" role="search" autocomplete="off">
+          <label for="dir-lang"><span data-i18n="dirLanguage">Language</span>
+            <select id="dir-lang"><option value="" data-i18n="dirAny">Any</option><option value="English">English</option><option value="Spanish">Español</option><option value="Mandarin">中文</option></select>
+          </label>
+          <label for="dir-meeting"><span data-i18n="dirMeeting">Meeting type</span>
+            <select id="dir-meeting"><option value="" data-i18n="dirAny">Any</option><option value="virtual" data-i18n="dirVirtual">Virtual</option><option value="in-person" data-i18n="dirInPerson">In person</option></select>
+          </label>
+          <label for="dir-text" class="dir-search"><span data-i18n="dirSearch">Search</span>
+            <input id="dir-text" type="search" placeholder="e.g. home buyers, Miami" data-i18n-ph="dirSearchPh" />
+          </label>
+        </form>
+        <p id="dir-count" class="meta" aria-live="polite"></p>
+        <div id="directory" class="directory"></div>
       </section>
 
       <!-- Advisor -->

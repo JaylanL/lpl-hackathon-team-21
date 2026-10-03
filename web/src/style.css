@@ -124,6 +124,16 @@ html.contrast .msg.bot { border: 1px solid #fff; }
 @media (prefers-reduced-motion: reduce) { .progress-fill { transition: none; } }
 .crm { margin-left: 8px; font-size: .75rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
 .crm.ok { color: var(--good); border-color: currentColor; }
+.dir-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 8px 0 4px; }
+.dir-filters label { display: grid; gap: 4px; font-size: .85rem; font-weight: 600; color: var(--ink-2); }
+.dir-filters select, .dir-filters input { font: inherit; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.dir-search { flex: 1 1 220px; }
+.directory { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; margin-top: 8px; }
+.dir-card { background: var(--surface); display: flex; flex-direction: column; }
+.dir-card .choose { margin-top: auto; }
+.dir-card .choose:disabled { opacity: .5; cursor: not-allowed; }
+.slots { font-size: .8rem; color: var(--ink-2); margin: 2px 0 4px; }
+.slots.open { color: var(--good); font-weight: 600; }
 .compliance { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .booking-card { margin-top: 16px; padding: 14px; border-color: var(--good); }
 .booking-card h3 { margin: 0 0 6px; color: var(--good); font-size: 1rem; }

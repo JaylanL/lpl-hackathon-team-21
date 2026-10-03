@@ -92,3 +92,15 @@ def test_fee_disclosure_never_blank():
     assert matching.fee_disclosure({})["fee_model"] == "Ask your advisor"
     d = matching.fee_disclosure({"fee_model": "Fee-only", "platform": "SAM"})
     assert d["fee_model"] == "Fee-only" and "Form CRS" in d["form_crs_note"]
+
+
+def test_directory_filters_and_hides_embeddings():
+    pool = [adv(1, [1, 0], langs=("English", "Spanish"), bio="first home"), adv(2, [0, 1], mts=("in-person",)),
+            adv(3, [1, 1], slots=0)]
+    everyone = matching.directory(pool)
+    assert [a["advisor_id"] for a in everyone] == ["adv-1", "adv-2", "adv-3"]  # full slots last
+    assert all("embedding" not in a and a["disclosure"]["fee_model"] for a in everyone)
+    assert [a["advisor_id"] for a in matching.directory(pool, language="spanish")] == ["adv-1"]
+    assert [a["advisor_id"] for a in matching.directory(pool, meeting_type="In person")] == ["adv-2"]
+    assert [a["advisor_id"] for a in matching.directory(pool, text="FIRST home")] == ["adv-1"]
+    assert matching.directory(pool, text="nobody") == []

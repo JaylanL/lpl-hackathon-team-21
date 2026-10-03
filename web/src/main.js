@@ -34,6 +34,10 @@ const T = {
     micStart: "Start speaking", micStop: "Stop speaking", choose: "Choose this advisor", verify: "Verify on FINRA BrokerCheck",
     booked: "You're booked!", with: "with", when: "When", chooseMsg: (n) => `I'd like to meet with ${n}.`,
     error: "Sorry, something went wrong. Please try again.",
+    tabDirectory: "All advisors", dirTitle: "All advisors", dirLead: "Browse every advisor, not just your top matches. Filter by language or meeting type, then ask to meet anyone who looks right.",
+    dirLanguage: "Language", dirMeeting: "Meeting type", dirAny: "Any", dirVirtual: "Virtual", dirInPerson: "In person", dirSearch: "Search", dirSearchPh: "e.g. home buyers, Miami",
+    dirCount: (n, total) => `Showing ${n} of ${total} advisors`, dirEmpty: "No advisors match these filters. Try removing one.",
+    openSlots: (n) => (n > 0 ? `Accepting new clients · ${n} open slot${n === 1 ? "" : "s"}` : "Not accepting new clients right now"), askToMeet: "Ask to meet",
     progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
     langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
     reason: {
@@ -66,6 +70,10 @@ const T = {
     micStart: "Empezar a hablar", micStop: "Dejar de hablar", choose: "Elegir este asesor", verify: "Verificar en FINRA BrokerCheck",
     booked: "¡Cita reservada!", with: "con", when: "Cuándo", chooseMsg: (n) => `Me gustaría reunirme con ${n}.`,
     error: "Lo siento, algo salió mal. Intente de nuevo.",
+    tabDirectory: "Todos los asesores", dirTitle: "Todos los asesores", dirLead: "Vea a todos los asesores, no solo sus mejores coincidencias. Filtre por idioma o tipo de reunión y pida reunirse con quien le parezca bien.",
+    dirLanguage: "Idioma", dirMeeting: "Tipo de reunión", dirAny: "Cualquiera", dirVirtual: "Virtual", dirInPerson: "Presencial", dirSearch: "Buscar", dirSearchPh: "p. ej. compradores de casa, Miami",
+    dirCount: (n, total) => `Mostrando ${n} de ${total} asesores`, dirEmpty: "Ningún asesor coincide con estos filtros. Quite alguno.",
+    openSlots: (n) => (n > 0 ? `Acepta clientes nuevos · ${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}` : "No acepta clientes nuevos por ahora"), askToMeet: "Pedir reunión",
     progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
     langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
     reason: {
@@ -84,6 +92,10 @@ const T = {
     howStep2Title: "2. 认识 3 位匹配顾问", howStep2Body: "查看符合您目标、语言和时间安排的三位顾问，并了解每位顾问适合您的简单原因。您可以在 FINRA BrokerCheck 上核实他们。",
     howStep3Title: "3. 做好会面准备", howStep3Body: "预约时间并获得个人准备清单：简单解释的关键术语、可以提出的问题以及需要携带的材料。您的顾问也会收到一份目标摘要。",
     howFootnote: "免费使用。我们帮助您做好准备，而不是替您投资：您的顾问会提供建议。",
+    tabDirectory: "所有顾问", dirTitle: "所有顾问", dirLead: "浏览所有顾问，而不仅仅是您的最佳匹配。按语言或会议方式筛选，然后向合适的顾问申请会面。",
+    dirLanguage: "语言", dirMeeting: "会议方式", dirAny: "不限", dirVirtual: "线上", dirInPerson: "面对面", dirSearch: "搜索", dirSearchPh: "例如：首次购房、Miami",
+    dirCount: (n, total) => `显示 ${n} / ${total} 位顾问`, dirEmpty: "没有符合这些条件的顾问。请尝试移除一个筛选条件。",
+    openSlots: (n) => (n > 0 ? `接受新客户 · ${n} 个可预约时段` : "目前不接受新客户"), askToMeet: "申请会面",
     progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
     langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
     reason: {
@@ -169,7 +181,7 @@ async function speak(text) {
 }
 
 // ---------- chat ----------
-async function send(text) {
+async function send(text, selectedAdvisorId) {
   text = (text || "").trim();
   if (!text || state.busy) return;
   stopDictation();
@@ -180,7 +192,7 @@ async function send(text) {
   $("#msg").value = "";
   const typing = addMsg("bot", t("thinking"), { cls: "typing" });
   try {
-    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang] });
+    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...(selectedAdvisorId ? { selected_advisor_id: selectedAdvisorId } : {}) });
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
@@ -233,7 +245,7 @@ function renderMatches(list) {
       ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model)} · ${esc(d.platform)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
       <a href="${a.brokercheck_url}" target="_blank" rel="noopener">${t("verify")} ↗</a>
       <button class="secondary choose" type="button">${t("choose")}</button>`;
-    card.querySelector(".choose").onclick = () => send(T[state.lang].chooseMsg(a.name));
+    card.querySelector(".choose").onclick = () => send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name));
     box.appendChild(card);
   });
 }
@@ -267,6 +279,47 @@ async function toggleMic() {
   } catch (e) {
     $("#live-hint").textContent = e.message;
   }
+}
+
+// ---------- advisor directory ----------
+let dirTimer = null;
+async function loadDirectory() {
+  const box = $("#directory");
+  box.setAttribute("aria-busy", "true");
+  try {
+    const { advisors, total } = await post("/advisors", {
+      language: $("#dir-lang").value, meeting_type: $("#dir-meeting").value, text: $("#dir-text").value,
+    });
+    state.directory = { advisors, total };
+    renderDirectory();
+  } catch (e) { box.innerHTML = `<p class="msg error">${esc(e.message)}</p>`; }
+  finally { box.removeAttribute("aria-busy"); }
+}
+function renderDirectory() {
+  if (!state.directory) return;
+  const { advisors, total } = state.directory;
+  const box = $("#directory");
+  $("#dir-count").textContent = t("dirCount")(advisors.length, total);
+  box.innerHTML = advisors.length ? "" : `<p class="muted">${esc(t("dirEmpty"))}</p>`;
+  advisors.forEach((a) => {
+    const d = a.disclosure || {};
+    const card = document.createElement("article");
+    card.className = "match dir-card";
+    card.innerHTML = `
+      <h3>${esc(a.name)}</h3>
+      <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
+      <div class="slots ${a.open_slots > 0 ? "open" : ""}">${esc(t("openSlots")(a.open_slots))}</div>
+      <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
+      <p class="meta">${esc(a.bio)}</p>
+      <div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model || "")} · ${esc(d.platform || "")}</div>
+      <a href="${a.brokercheck_url}" target="_blank" rel="noopener">${t("verify")} ↗</a>
+      <button class="secondary choose" type="button" ${a.open_slots > 0 ? "" : "disabled"}>${esc(t("askToMeet"))}</button>`;
+    card.querySelector(".choose").onclick = () => {
+      showView("investor");
+      send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name), a.advisor_id);
+    };
+    box.appendChild(card);
+  });
 }
 
 // ---------- advisor view ----------
@@ -352,6 +405,7 @@ function showView(name) {
   });
   document.querySelectorAll("[role=tabpanel]").forEach((p) => (p.hidden = p.id !== "view-" + name));
   if (name === "advisor") loadBookings();
+  if (name === "directory") loadDirectory();
   if (name === "dashboard") loadMetrics();
 }
 
@@ -376,6 +430,7 @@ async function init() {
     });
     applyI18n();
     if ($("#matches .match")) renderMatches(state.lastMatches || []);
+    renderDirectory();
   }));
   document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
     const size = Number(button.dataset.size);
@@ -403,6 +458,10 @@ async function init() {
   $("#mic").onclick = toggleMic;
   document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.textContent)));
   $("#refresh-bookings").onclick = loadBookings;
+  $("#dir-filters").onsubmit = (e) => { e.preventDefault(); loadDirectory(); };
+  $("#dir-lang").onchange = loadDirectory;
+  $("#dir-meeting").onchange = loadDirectory;
+  $("#dir-text").oninput = () => { clearTimeout(dirTimer); dirTimer = setTimeout(loadDirectory, 250); };
   $("#refresh-metrics").onclick = loadMetrics;
   ["#r-adv", "#r-cli", "#r-aum", "#r-fee"].forEach((s) => ($(s).oninput = calcRoi));
   calcRoi();

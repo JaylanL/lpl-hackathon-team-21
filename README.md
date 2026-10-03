@@ -23,7 +23,8 @@ Optional: `ALERT_EMAIL=you@example.com bash deploy.sh` turns on alarm emails and
 - Infrastructure: template.yaml
 
 ## API (Function URL)
-POST /chat {message, session_id?, simple?}; POST /speak {text, lang}; POST /metrics; POST /bookings; GET /health
+POST /chat {message, session_id?, simple?, selected_advisor_id?}; POST /speak {text, lang}; POST /metrics; POST /bookings;
+POST /advisors {language?, meeting_type?, text?} (full advisor list for the "All advisors" tab); GET /health
 
 ## Architecture skills
 The coding-agent skills are in `skills/` (from `test1`); how each one maps onto this app: docs/skills-applied.md.

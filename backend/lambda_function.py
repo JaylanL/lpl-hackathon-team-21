@@ -5,6 +5,7 @@ Routes (Lambda Function URL, JSON in / JSON out):
   POST /speak     {text, lang?}                           -> {audio_b64}
   POST /metrics   {day?}                                  -> {day, funnel}
   POST /bookings  {}                                      -> {bookings}
+  POST /advisors  {language?, meeting_type?, text?}       -> {advisors, total}
   GET  /health                                            -> {ok}
 
 Matching logic lives in matching.py, metrics/logging in observability.py, CRM sync in crm_sync.py.
@@ -89,6 +90,13 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = Field(default=None, pattern=r"^[A-Za-z0-9-]{8,64}$")
     lang: str = "English"
     simple: bool = False
+    selected_advisor_id: Optional[str] = Field(default=None, pattern=r"^adv-[0-9]{1,6}$")
+
+
+class DirectoryRequest(BaseModel):
+    language: str = Field(default="", max_length=30)
+    meeting_type: str = Field(default="", max_length=30)
+    text: str = Field(default="", max_length=100)
 
 
 class SpeakRequest(BaseModel):
@@ -347,6 +355,14 @@ def chat(body):
                              "progress": matching.intake_progress(get_state(session_id)["slots"])})
 
     message = req.message + ("\n\n(Please explain in very simple words.)" if req.simple else "")
+    # Picked from the advisor directory: the ID comes from the real inventory, so it may be booked (SKILL-02).
+    if req.selected_advisor_id:
+        picked = next((a for a in advisors() if a["advisor_id"] == req.selected_advisor_id), None)
+        if picked:
+            state = get_state(session_id)
+            if picked["advisor_id"] not in state["matched_ids"]:
+                save_state(session_id, matched_ids=state["matched_ids"] + [picked["advisor_id"]])
+            message += f"\n\n(They picked {picked['name']} from the advisor directory: advisor_id {picked['advisor_id']}.)"
     agent = Agent(
         model=MODEL,
         system_prompt=SYSTEM_PROMPT,
@@ -402,6 +418,11 @@ def lambda_handler(event, context):
             items = BOOKINGS.scan(Limit=100)["Items"]
             items.sort(key=lambda b: b.get("created_at", ""), reverse=True)
             return respond(200, {"bookings": items[:25]})
+
+        if path == "/advisors":
+            req = DirectoryRequest(**body)
+            items = matching.directory(advisors(), req.language, req.meeting_type, req.text)
+            return respond(200, {"advisors": items, "total": len(advisors())})
 
         return respond(404, {"error": f"unknown route {path}"})
     except ValidationError as e:

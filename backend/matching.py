@@ -182,3 +182,30 @@ def fee_disclosure(advisor):
         "platform": advisor.get("platform", "Ask your advisor"),
         "form_crs_note": "You'll receive a Form CRS: a short summary of services, fees and conflicts of interest.",
     }
+
+
+# ---------- advisor directory (browse every advisor, not only the top 3) ----------
+DIRECTORY_FIELDS = ("advisor_id", "name", "city", "languages", "meeting_types", "focus", "bio", "open_slots")
+
+
+def directory(advisors, language="", meeting_type="", text=""):
+    """Filter and sort the full advisor list for the directory view. No ranking, no embeddings returned."""
+    lang = (language or "").strip().capitalize()
+    mt = normalize_meeting_type(meeting_type) if (meeting_type or "").strip() else ""
+    words = [w for w in (text or "").lower().split() if w]
+    out = []
+    for a in advisors:
+        if lang and lang not in a["languages"]:
+            continue
+        if mt and mt not in a["meeting_types"]:
+            continue
+        haystack = " ".join([a["name"], a["city"], a.get("bio", ""), *a.get("focus", [])]).lower()
+        if any(w not in haystack for w in words):
+            continue
+        item = {k: a[k] for k in DIRECTORY_FIELDS if k in a}
+        item["disclosure"] = fee_disclosure(a)
+        item["brokercheck_url"] = "https://brokercheck.finra.org/"
+        out.append(item)
+    # Accepting new clients first, then alphabetical, so the order is neutral (no paid placement).
+    out.sort(key=lambda a: (a.get("open_slots", 0) <= 0, a["name"]))
+    return out
