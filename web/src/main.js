@@ -9,7 +9,7 @@ const api = (path) => CFG.apiUrl.replace(/\/$/, "") + path;
 async function post(path, body = {}) {
   const r = await fetch(api(path), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.detail || data.error || `HTTP ${r.status}`);
+  if (!r.ok) throw Object.assign(new Error(data.detail || data.error || `HTTP ${r.status}`), { status: r.status });
   return data;
 }
 
@@ -29,7 +29,7 @@ const T = {
     msgLabel: "Your message", msgPh: "Type or tap the mic and speak…", send: "Send",
     matchesTitle: "Your matches", matchesEmpty: "Your top 3 advisors will appear here, with the reasons each one fits you.",
     advisorTitle: "New prospects", advisorLead: "Matched clients arrive with a briefing, so the first meeting starts with their goals, not paperwork. Designed to drop into ClientWorks.",
-    dashTitle: "Prospect-to-client funnel", dashLead: "Every intake is measured, so impact is visible, not claimed.", refresh: "Refresh",
+    dashTitle: "Business impact dashboard", dashLead: "Track advisor matches, meeting momentum, and the value this experience could unlock.", refresh: "Refresh",
     roiTitle: "Business impact calculator (illustrative)", roiNote: "Move the sliders to model scenarios. Assumptions are inputs, not forecasts.",
     greeting: "Hi! I'm Advisor Match. I'll ask a few short questions and then show you advisors who fit you. To start: what's one money goal you have right now?",
     readAloud: "Read aloud", thinking: "Thinking…", listening: "Listening… speak now. Tap the mic again to stop.",
@@ -250,6 +250,8 @@ const chat = () => $("#chat");
 function addMsg(role, text, opts = {}) {
   const div = document.createElement("div");
   div.className = `msg ${role}${opts.cls ? " " + opts.cls : ""}`;
+  div.dataset.sourceText = text;
+  div.dataset.messageRole = role;
   const body = document.createElement("div");
   body.className = "msg-body";
   body.innerHTML = role === "bot" && !opts.cls ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
@@ -266,12 +268,42 @@ function addMsg(role, text, opts = {}) {
     b.type = "button";
     b.textContent = "🔊 " + t("readAloud");
     b.setAttribute("aria-label", t("readAloud"));
-    b.onclick = () => speak(text);
+    b.onclick = () => speak(div.querySelector(".msg-body")?.dataset.speakText || text);
+    body.dataset.speakText = text;
     body.appendChild(b);
   }
   chat().appendChild(div);
   chat().scrollTop = chat().scrollHeight;
   return div;
+}
+
+function renderMessageText(div, text) {
+  const role = div.dataset.messageRole;
+  const body = div.querySelector(".msg-body");
+  if (!body) return;
+  body.dataset.speakText = text;
+  body.innerHTML = role === "bot" ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
+  if (role === "bot") {
+    const button = document.createElement("button");
+    button.className = "speak";
+    button.type = "button";
+    button.textContent = "🔊 " + t("readAloud");
+    button.setAttribute("aria-label", t("readAloud"));
+    button.onclick = () => speak(body.dataset.speakText);
+    body.appendChild(button);
+  }
+}
+
+async function translateChatHistory() {
+  const messages = [...chat().querySelectorAll(".msg[data-source-text]")].filter((div) => !div.classList.contains("typing") && !div.classList.contains("error"));
+  await Promise.all(messages.map(async (div) => {
+    try {
+      const result = await post("/translate", { text: div.dataset.sourceText, lang: state.lang });
+      renderMessageText(div, result.text);
+    } catch (e) {
+      console.warn("[translate] keeping original message", e);
+    }
+  }));
 }
 
 let audioEl = null;
@@ -381,11 +413,30 @@ function saveBookingLocally(b) {
   state.booking = b;
   try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, booking: b })); } catch (_) {}
 }
-function restoreBooking() {
+function forgetBooking() {
+  state.booking = null;
+  try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
+}
+// Show the booking saved in this browser only if the server still has it. Cleared, corrupt or blocked
+// storage, or a booking that was deleted or cancelled elsewhere, means there is no booking.
+async function restoreBooking() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null"); } catch (_) { forgetBooking(); return; }
+  if (!saved) return;
+  const { sessionId, booking } = saved;
+  if (!booking?.booking_id || !sessionId) { forgetBooking(); return; }
   try {
-    const saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null");
-    if (saved?.booking?.booking_id) { state.sessionId = saved.sessionId; state.booking = saved.booking; renderBooking(saved.booking); }
-  } catch (_) {}
+    const { booking: latest } = await post("/bookings/get", { booking_id: booking.booking_id, session_id: sessionId });
+    if (!latest || latest.status === "cancelled") { forgetBooking(); return; }
+    state.sessionId = sessionId;
+    saveBookingLocally(latest);
+    renderBooking(latest);
+  } catch (e) {
+    if (e.status) { forgetBooking(); return; }  // the server answered: the booking is gone or not ours
+    state.sessionId = sessionId;  // server unreachable: keep showing what we saved
+    state.booking = booking;
+    renderBooking(booking);
+  }
 }
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -630,13 +681,60 @@ async function loadBookings() {
 
 // ---------- dashboard ----------
 const STAGES = [["intake_started", "Intake started"], ["matched", "Matched to advisors"], ["booked", "First meeting booked"], ["briefing_sent", "Advisor briefed"]];
+let currentMetricsReport = null;
+function setupMetricDateSelectors() {
+  const year = new Date().getUTCFullYear();
+  $("#metrics-year").innerHTML = Array.from({ length: 6 }, (_, index) => year - index)
+    .map((value) => `<option value="${value}">${value}</option>`).join("");
+  $("#metrics-year").value = String(year);
+  $("#metrics-month").value = String(new Date().getUTCMonth() + 1).padStart(2, "0");
+  $("#metrics-quarter").value = String(Math.floor(new Date().getUTCMonth() / 3) + 1);
+}
+
+function applyYearMonthRange() {
+  const year = $("#metrics-year").value;
+  const month = $("#metrics-month").value;
+  if (!year) return;
+  $("#metrics-range").value = month ? "month" : "year";
+  $("#custom-range").hidden = true;
+  loadMetrics();
+}
+
 async function loadMetrics() {
   const box = $("#funnel");
   box.innerHTML = `<p class="muted">${t("thinking")}</p>`;
   try {
-    const { funnel, day } = await post("/metrics");
+    const range = $("#metrics-range").value;
+    const request = { range, year: Number($("#metrics-year").value) };
+    if (range === "month") request.month = Number($("#metrics-month").value);
+    if (range === "quarter") request.quarter = Number($("#metrics-quarter").value);
+    if (range === "custom") {
+      request.start_date = $("#metrics-start").value;
+      request.end_date = $("#metrics-end").value;
+      if (!request.start_date || !request.end_date) {
+        box.innerHTML = `<p class="muted">Choose both dates to view a custom report.</p>`;
+        return;
+      }
+    }
+    const report = await post("/metrics", request);
+    const { funnel, start_date, end_date } = report;
+    currentMetricsReport = report;
+    const matched = funnel.matched || 0;
+    const booked = funnel.booked || 0;
+    const briefed = funnel.briefing_sent || 0;
+    const conversion = matched ? Math.round((booked / matched) * 100) : 0;
+    const aum = +$("#r-aum").value;
+    const fee = +$("#r-fee").value;
+    const opportunity = booked * aum * (fee / 100);
+    $("#metrics-day").textContent = `${start_date === end_date ? start_date : `${start_date} to ${end_date}`} · UTC`;
+    $("#kpi-matched").textContent = matched.toLocaleString();
+    $("#kpi-conversion").textContent = `${conversion}%`;
+    $("#kpi-briefed").textContent = briefed.toLocaleString();
+    $("#kpi-opportunity").textContent = usd(opportunity);
+    renderRecommendations({ matched, booked, briefed, conversion });
+    loadInsights(report);
     const max = Math.max(1, ...STAGES.map(([k]) => funnel[k] || 0));
-    box.innerHTML = `<div class="meta">Today (${esc(day)}, UTC)</div>`;
+    box.innerHTML = `<div class="meta">${start_date === end_date ? `Daily report · ${esc(start_date)}` : `Report period · ${esc(start_date)} to ${esc(end_date)}`}</div>`;
     STAGES.forEach(([k, label], i) => {
       const v = funnel[k] || 0;
       const row = document.createElement("div");
@@ -657,9 +755,67 @@ async function loadMetrics() {
     const pii = funnel.pii_blocked || 0, gr = funnel.guardrail_blocked || 0;
     const c = document.createElement("div");
     c.className = "meta compliance";
-    c.textContent = `Compliance today: ${pii} message${pii === 1 ? "" : "s"} with personal identifiers blocked · ${gr} guardrail intervention${gr === 1 ? "" : "s"}`;
+
+    c.textContent = `Compliance in period: ${pii} message${pii === 1 ? "" : "s"} with personal identifiers blocked · ${gr} guardrail intervention${gr === 1 ? "" : "s"}`;
     box.appendChild(c);
+
   } catch (e) { box.innerHTML = `<p class="msg error">${esc(e.message)}</p>`; }
+}
+
+async function loadInsights(report) {
+  try {
+    const result = await post("/insights", {
+      funnel: report.funnel,
+      start_date: report.start_date,
+      end_date: report.end_date,
+    });
+    renderRecommendations(result.recommendations || []);
+  } catch (e) {
+    console.warn("[insights] falling back to local recommendations", e);
+  }
+}
+
+function exportMetricsCsv() {
+  if (!currentMetricsReport) return;
+  const { funnel, range, start_date, end_date } = currentMetricsReport;
+  const matched = funnel.matched || 0;
+  const booked = funnel.booked || 0;
+  const briefed = funnel.briefing_sent || 0;
+  const conversion = matched ? Math.round((booked / matched) * 100) : 0;
+  const aum = +$("#r-aum").value;
+  const fee = +$("#r-fee").value;
+  const rows = [
+    ["Metric", "Value", "Period", "Start date", "End date", "Notes"],
+    ["Advisor matches delivered", matched, range, start_date, end_date, "Observed ranked matches"],
+    ["Match-to-meeting rate", `${conversion}%`, range, start_date, end_date, "Booked divided by matches"],
+    ["Advisor briefs sent", briefed, range, start_date, end_date, "Observed advisor handoffs"],
+    ["Modeled annual fee opportunity", usd(booked * aum * (fee / 100)), range, start_date, end_date, `Illustrative model at ${usd(aum)} assets and ${fee.toFixed(2)}% fee`],
+    ...STAGES.map(([key, label]) => [label, funnel[key] || 0, range, start_date, end_date, "Observed funnel event count"]),
+  ];
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `advisor-match-impact-${start_date}-to-${end_date}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderRecommendations(input) {
+  if (Array.isArray(input)) {
+    $("#recommendations").innerHTML = input.map((item, index) => `<article class="recommendation ${item.priority === "positive" ? "positive" : ""}"><span class="recommendation-number">${index + 1}</span><div><strong>${esc(item.title)}</strong><p>${esc(item.body)}</p><small>${esc(item.metric || "")}</small></div></article>`).join("");
+    return;
+  }
+  const { matched, briefed, conversion } = input;
+  const box = $("#recommendations");
+  const items = [];
+  if (!matched) items.push({ tone: "priority", title: "Create the first proof point", body: "Run 3 to 5 golden-path intakes so the demo can show advisor matches, booking momentum, and a before-and-after story." });
+  else if (conversion < 25) items.push({ tone: "priority", title: "Improve match-to-meeting conversion", body: "Test a stronger next step after matching: show the best-fit advisor first, explain why, and offer two concrete meeting times." });
+  else items.push({ tone: "positive", title: "Scale the matching motion", body: "Conversion is showing momentum. The biggest upside now comes from routing more qualified prospects into the same guided experience." });
+  if (matched && briefed / matched < 0.8) items.push({ tone: "focus", title: "Close the advisor handoff loop", body: "Increase briefing completion so advisors receive goals and concerns before the meeting. This protects the value of the match beyond the first click." });
+  if (matched >= 3) items.push({ tone: "focus", title: "Make the value easy to prove", body: "Lead the pitch with matches delivered, booking rate, and modeled fee opportunity. Keep the model labeled illustrative and pair it with observed counts." });
+  box.innerHTML = items.map((item, index) => `<article class="recommendation ${item.tone}"><span class="recommendation-number">${index + 1}</span><div><strong>${item.title}</strong><p>${item.body}</p></div></article>`).join("");
 }
 
 const usd = (n) => n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${Math.round(n).toLocaleString()}`;
@@ -732,6 +888,7 @@ async function init() {
       option.setAttribute("aria-pressed", active);
     });
     applyI18n();
+    translateChatHistory();
     if ($("#matches .match")) renderMatches(state.lastMatches || []);
     renderDirectory();
     if (state.booking && $("#booking .booking-card")) renderBooking(state.booking);
@@ -767,8 +924,19 @@ async function init() {
   $("#dir-meeting").onchange = loadDirectory;
   $("#dir-text").oninput = () => { clearTimeout(dirTimer); dirTimer = setTimeout(loadDirectory, 250); };
   $("#refresh-metrics").onclick = loadMetrics;
+  $("#metrics-range").onchange = (e) => {
+    $("#custom-range").hidden = e.target.value !== "custom";
+    if (e.target.value !== "custom") loadMetrics();
+  };
+  $("#metrics-year").onchange = applyYearMonthRange;
+  $("#metrics-month").onchange = applyYearMonthRange;
+  $("#metrics-quarter").onchange = loadMetrics;
+  $("#metrics-start").onchange = loadMetrics;
+  $("#metrics-end").onchange = loadMetrics;
+  $("#export-metrics").onclick = exportMetricsCsv;
   ["#r-adv", "#r-cli", "#r-aum", "#r-fee"].forEach((s) => ($(s).oninput = calcRoi));
   calcRoi();
+  setupMetricDateSelectors();
   applyI18n();
   addMsg("bot", t("greeting"));
   restoreBooking();
