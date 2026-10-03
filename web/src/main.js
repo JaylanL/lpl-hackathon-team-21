@@ -48,7 +48,7 @@ const T = {
     bkSubmit: "Book meeting", bkSave: "Save changes", bkCancel: "Cancel", bkChange: "Change details",
     bkSaved: "Changes saved.", bkWeekdays: "Weekdays only, advisor's local time.", bkPurposeLabel: "Meeting about",
     bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "Cancel meeting", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
+    bkCancelMeeting: "Cancel meeting", bkCalendar: "Add to Google Calendar", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
     bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
     bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
     matchScore: (n) => `${n}% match`, whyFit: "Why this match",
@@ -100,7 +100,7 @@ const T = {
     bkSubmit: "Reservar reunión", bkSave: "Guardar cambios", bkCancel: "Cancelar", bkChange: "Cambiar detalles",
     bkSaved: "Cambios guardados.", bkWeekdays: "Solo días laborables, hora local del asesor.", bkPurposeLabel: "Tema",
     bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "Cancelar reunión", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
+    bkCancelMeeting: "Cancelar reunión", bkCalendar: "Agregar a Google Calendar", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
     bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
     bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
     matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
@@ -137,7 +137,7 @@ const T = {
     bkSubmit: "预约会面", bkSave: "保存更改", bkCancel: "取消", bkChange: "修改详情",
     bkSaved: "更改已保存。", bkWeekdays: "仅限工作日，顾问当地时间。", bkPurposeLabel: "会面主题",
     bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "取消会面", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
+    bkCancelMeeting: "取消会面", bkCalendar: "添加到 Google 日历", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
     bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
     bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
     matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
@@ -539,6 +539,21 @@ function openBookingForm(advisor, existing = null) {
 function renderBooking(b, notice = "") {
   const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
+  const calendarLink = b.meeting_date ? (() => {
+    const [year, month, day] = b.meeting_date.split("-").map(Number);
+    const [hour, minute] = (b.meeting_time || "00:00").split(":").map(Number);
+    const start = new Date(Date.UTC(year, month - 1, day, hour, minute));
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+    const stamp = (date) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}00`;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: `Meeting with ${b.advisor_name || "your advisor"}`,
+      dates: `${stamp(start)}/${stamp(end)}`,
+      details: b.meeting_purpose || "",
+      location: b.location || "",
+    });
+    return `https://calendar.google.com/calendar/render?${params}`;
+  })() : "";
   const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
   if (b.status === "cancelled") {
     // A cancelled meeting simply disappears; screen readers still hear that it was cancelled.
@@ -557,6 +572,7 @@ function renderBooking(b, notice = "") {
       ${notice ? `<p class="saved-note">${esc(notice)}</p>` : ""}
       <div class="bk-actions">
         ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
+        ${calendarLink ? `<a class="secondary" href="${esc(calendarLink)}" target="_blank" rel="noopener">${esc(t("bkCalendar"))}</a>` : ""}
         <button type="button" class="secondary danger" id="bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
       </div>
       <div class="bk-confirm" id="bk-confirm" hidden>
