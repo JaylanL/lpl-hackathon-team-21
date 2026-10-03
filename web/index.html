@@ -27,7 +27,7 @@
       </nav>
     </header>
 
-    <button type="button" id="settings-toggle" class="settings-toggle" aria-expanded="false" aria-controls="settings-panel">⚙ <span data-i18n="settings">Settings</span></button>
+    <button type="button" id="settings-toggle" class="settings-toggle" aria-expanded="false" aria-controls="settings-panel" aria-label="Open settings" title="Settings">⚙</button>
     <div id="settings-panel" class="prefs" role="group" aria-label="Display and accessibility options">
       <div class="language-picker">
         <span class="pref-label" data-i18n="languageLabel">Language</span>
@@ -42,6 +42,7 @@
         <button type="button" class="size-option active" data-size="100" aria-pressed="true">A</button>
         <button type="button" class="size-option" data-size="112" aria-pressed="false">A+</button>
         <button type="button" class="size-option" data-size="125" aria-pressed="false">A++</button>
+        <input type="range" id="mobile-text-size" class="mobile-text-size" min="100" max="125" step="1" value="100" aria-label="Text size" />
       </div>
       <label class="toggle"><input type="checkbox" id="pref-contrast" /> <span data-i18n="prefContrast">High contrast</span></label>
       <label class="toggle"><input type="checkbox" id="pref-autoread" /> <span data-i18n="prefRead">Read replies aloud</span></label>
