@@ -223,6 +223,8 @@ def actionable_insights(funnel):
     if not matched:
         recommendations.append({
             "priority": "high",
+            "id": "first_proof",
+            "values": {},
             "title": "Create the first proof point",
             "body": "Run 3 to 5 golden-path intakes so the demo can show advisor matches, booking momentum, and a before-and-after story.",
             "metric": "matched = 0",
@@ -230,6 +232,8 @@ def actionable_insights(funnel):
     elif conversion < 25:
         recommendations.append({
             "priority": "high",
+            "id": "conversion",
+            "values": {"conversion": conversion},
             "title": "Improve match-to-meeting conversion",
             "body": "Show the best-fit advisor first, explain why they fit, and offer two concrete meeting times immediately after matching.",
             "metric": f"conversion = {conversion}%",
@@ -237,6 +241,8 @@ def actionable_insights(funnel):
     else:
         recommendations.append({
             "priority": "positive",
+            "id": "scale",
+            "values": {"conversion": conversion},
             "title": "Scale the matching motion",
             "body": "Conversion is showing momentum. The biggest upside now comes from routing more qualified prospects into the same guided experience.",
             "metric": f"conversion = {conversion}%",
@@ -244,6 +250,8 @@ def actionable_insights(funnel):
     if matched and briefed / matched < 0.8:
         recommendations.append({
             "priority": "medium",
+            "id": "handoff",
+            "values": {"rate": round(briefed / matched * 100)},
             "title": "Close the advisor handoff loop",
             "body": "Increase briefing completion so advisors receive goals and concerns before the meeting. This protects the value of the match beyond the first click.",
             "metric": f"briefing rate = {round(briefed / matched * 100)}%",
@@ -251,6 +259,8 @@ def actionable_insights(funnel):
     if matched >= 3:
         recommendations.append({
             "priority": "medium",
+            "id": "prove",
+            "values": {"matched": matched},
             "title": "Make the value easy to prove",
             "body": "Lead the pitch with matches delivered, booking rate, and modeled fee opportunity. Pair modeled value with observed counts.",
             "metric": f"{matched} matches observed",
