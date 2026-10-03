@@ -132,50 +132,6 @@ Resources:
       TimeToLiveSpecification: {AttributeName: expires_at, Enabled: true}
       SSESpecification: {SSEEnabled: true, SSEType: KMS, KMSMasterKeyId: !Ref DataKey}
 
-  # ---------------- compliance ----------------
-  Guardrail:
-    Type: AWS::Bedrock::Guardrail
-    Properties:
-      Name: !Sub ${Prefix}-guardrail
-      Description: Blocks personalized investment advice and sensitive identifiers
-      BlockedInputMessaging: "That's a great question for your advisor - I can help you get ready to ask it. (I can't give investment advice or accept account or Social Security numbers.)"
-      BlockedOutputsMessaging: "That's a great question for your advisor - I can help you get ready to ask it."
-      TopicPolicyConfig:
-        TopicsConfig:
-          - Name: Personalized investment advice
-            Type: DENY
-            Definition: Block requests for a specific buy, sell, hold, asset allocation, or trade action. Allow general investing interest, getting-started help, and advisor matching.
-            Examples:
-              - Should I buy Tesla stock?
-              - Which fund should I put my 401k in?
-              - Is now a good time to sell my investments?
-              - Should I sell my Apple shares and buy Nvidia instead?
-              - Allocate 30% of my portfolio to bonds and the rest to tech stocks?
-            InputEnabled: false
-            InputAction: NONE
-            OutputEnabled: true
-            OutputAction: BLOCK
-      ContentPolicyConfig:
-        FiltersConfig:
-          - {Type: HATE, InputStrength: HIGH, OutputStrength: HIGH}
-          - {Type: INSULTS, InputStrength: HIGH, OutputStrength: HIGH}
-          - {Type: SEXUAL, InputStrength: HIGH, OutputStrength: HIGH}
-          - {Type: VIOLENCE, InputStrength: HIGH, OutputStrength: HIGH}
-          - {Type: MISCONDUCT, InputStrength: HIGH, OutputStrength: HIGH}
-          - {Type: PROMPT_ATTACK, InputStrength: HIGH, OutputStrength: NONE}
-      SensitiveInformationPolicyConfig:
-        PiiEntitiesConfig:
-          - {Type: US_SOCIAL_SECURITY_NUMBER, Action: BLOCK}
-          - {Type: US_BANK_ACCOUNT_NUMBER, Action: BLOCK}
-          - {Type: CREDIT_DEBIT_CARD_NUMBER, Action: BLOCK}
-          - {Type: US_PASSPORT_NUMBER, Action: BLOCK}
-
-  GuardrailVersion:
-    Type: AWS::Bedrock::GuardrailVersion
-    Properties:
-      GuardrailIdentifier: !GetAtt Guardrail.GuardrailId
-      Description: v3
-
   # ---------------- agent ----------------
   AgentRole:
     Type: AWS::IAM::Role
@@ -200,9 +156,6 @@ Resources:
                 Resource:
                   - arn:aws:bedrock:*::foundation-model/*
                   - !Sub arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*
-              - Effect: Allow
-                Action: bedrock:ApplyGuardrail
-                Resource: !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*
               - Effect: Allow
                 Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
                 Resource: !Sub ${DataBucket.Arn}/*
@@ -252,8 +205,6 @@ Resources:
       Environment:
         Variables:
           MODEL_ID: !Ref ModelId
-          GUARDRAIL_ID: !GetAtt Guardrail.GuardrailId
-          GUARDRAIL_VERSION: !GetAtt GuardrailVersion.Version
           DATA_BUCKET: !Ref DataBucket
           BOOKINGS_TABLE: !Ref BookingsTable
           FUNNEL_TABLE: !Ref FunnelTable
@@ -407,7 +358,7 @@ Resources:
       BatchSize: 10
       FunctionResponseTypes: [ReportBatchItemFailures]
 
-  # ---------------- observability + cost guardrails (SKILL-12) ----------------
+  # ---------------- observability + cost controls (SKILL-12) ----------------
   AlarmTopic:
     Type: AWS::SNS::Topic
     Properties:
@@ -606,5 +557,3 @@ Outputs:
     Value: !Ref Distribution
   IdentityPoolId:
     Value: !Ref IdentityPool
-  GuardrailId:
-    Value: !GetAtt Guardrail.GuardrailId
