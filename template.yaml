@@ -18,11 +18,58 @@ Parameters:
     Type: String
     Default: ""
     Description: Optional. Use a pre-made Lambda execution role if your account can't create IAM roles.
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: Optional. Email for alarm notifications and the monthly cost budget.
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 50
+  CrmWebhookUrl:
+    Type: String
+    Default: ""
+    Description: Optional. HTTPS endpoint that receives synced bookings. Empty = write to the S3 crm-outbox/ only.
 
 Conditions:
   CreateRole: !Equals [!Ref ExistingLambdaRoleArn, ""]
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, ""]]
 
 Resources:
+  # ---------------- encryption (SKILL-08: customer managed key) ----------------
+  DataKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub ${Prefix} data encryption key (sessions, bookings, intake state, CRM queue)
+      EnableKeyRotation: true
+      PendingWindowInDays: 7
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: {AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"}
+            Action: kms:*
+            Resource: "*"
+          - Sid: EventBridgeToEncryptedQueue
+            Effect: Allow
+            Principal: {Service: events.amazonaws.com}
+            Action: [kms:GenerateDataKey, kms:Decrypt]
+            Resource: "*"
+          - !If
+            - CreateRole
+            - !Ref AWS::NoValue
+            - Sid: ExistingLambdaRole
+              Effect: Allow
+              Principal: {AWS: !Ref ExistingLambdaRoleArn}
+              Action: [kms:GenerateDataKey, kms:Decrypt]
+              Resource: "*"
+
+  DataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/${Prefix}-data
+      TargetKeyId: !Ref DataKey
+
   # ---------------- data ----------------
   DataBucket:
     Type: AWS::S3::Bucket
@@ -34,7 +81,18 @@ Resources:
         RestrictPublicBuckets: true
       BucketEncryption:
         ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: "aws:kms", KMSMasterKeyID: !GetAtt DataKey.Arn}
+            BucketKeyEnabled: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-anonymous-sessions  # SKILL-01: anonymous chat history is kept for 24h only
+            Status: Enabled
+            Prefix: sessions/
+            ExpirationInDays: 1
+          - Id: expire-crm-outbox
+            Status: Enabled
+            Prefix: crm-outbox/
+            ExpirationInDays: 30
 
   BookingsTable:
     Type: AWS::DynamoDB::Table
@@ -45,6 +103,8 @@ Resources:
         - {AttributeName: booking_id, AttributeType: S}
       KeySchema:
         - {AttributeName: booking_id, KeyType: HASH}
+      PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+      SSESpecification: {SSEEnabled: true, SSEType: KMS, KMSMasterKeyId: !Ref DataKey}
 
   FunnelTable:
     Type: AWS::DynamoDB::Table
@@ -57,6 +117,20 @@ Resources:
       KeySchema:
         - {AttributeName: day, KeyType: HASH}
         - {AttributeName: ts_id, KeyType: RANGE}
+      SSESpecification: {SSEEnabled: true, SSEType: KMS, KMSMasterKeyId: !Ref DataKey}
+
+  # Anonymous intake state: filled preference slots, matched advisor IDs, compliance flags (SKILL-01/02).
+  IntakeTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Prefix}-intake
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: session_id, AttributeType: S}
+      KeySchema:
+        - {AttributeName: session_id, KeyType: HASH}
+      TimeToLiveSpecification: {AttributeName: expires_at, Enabled: true}
+      SSESpecification: {SSEEnabled: true, SSEType: KMS, KMSMasterKeyId: !Ref DataKey}
 
   # ---------------- compliance ----------------
   Guardrail:
@@ -110,6 +184,7 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
         - PolicyName: agent-least-privilege
           PolicyDocument:
@@ -131,7 +206,13 @@ Resources:
                 Resource: !GetAtt DataBucket.Arn
               - Effect: Allow
                 Action: [dynamodb:PutItem, dynamodb:GetItem, dynamodb:UpdateItem, dynamodb:Query, dynamodb:Scan]
-                Resource: [!GetAtt BookingsTable.Arn, !GetAtt FunnelTable.Arn]
+                Resource: [!GetAtt BookingsTable.Arn, !GetAtt FunnelTable.Arn, !GetAtt IntakeTable.Arn]
+              - Effect: Allow
+                Action: [kms:Decrypt, kms:GenerateDataKey]
+                Resource: !GetAtt DataKey.Arn
+              - Effect: Allow
+                Action: events:PutEvents
+                Resource: !GetAtt EventBus.Arn
               - Effect: Allow
                 Action: polly:SynthesizeSpeech
                 Resource: "*"
@@ -157,6 +238,8 @@ Resources:
       MemorySize: 1024
       Timeout: 90
       Layers: [!Ref StrandsLayer]
+      TracingConfig: {Mode: Active}
+      LoggingConfig: {LogGroup: !Ref AgentLogGroup}
       Code:
         S3Bucket: !Ref ArtifactBucket
         S3Key: !Ref LambdaCodeKey
@@ -168,6 +251,14 @@ Resources:
           DATA_BUCKET: !Ref DataBucket
           BOOKINGS_TABLE: !Ref BookingsTable
           FUNNEL_TABLE: !Ref FunnelTable
+          INTAKE_TABLE: !Ref IntakeTable
+          EVENT_BUS: !Ref EventBus
+
+  AgentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /${Prefix}/agent
+      RetentionInDays: 30
 
   AgentUrl:
     Type: AWS::Lambda::Url
@@ -195,6 +286,203 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: "*"
       InvokedViaFunctionUrl: true
+
+  # ---------------- booking -> CRM pipeline (SKILL-05 + SKILL-10) ----------------
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub ${Prefix}-events
+
+  CrmDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600  # 14 days to inspect and redrive
+      KmsMasterKeyId: !Ref DataKey
+
+  CrmQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 180  # 6x the consumer timeout
+      KmsMasterKeyId: !Ref DataKey
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CrmDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  CrmQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues: [!Ref CrmQueue, !Ref CrmDeadLetterQueue]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: events.amazonaws.com}
+            Action: sqs:SendMessage
+            Resource: [!GetAtt CrmQueue.Arn, !GetAtt CrmDeadLetterQueue.Arn]
+            Condition:
+              ArnEquals: {aws:SourceArn: !GetAtt BookingRule.Arn}
+
+  BookingRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref EventBus
+      EventPattern:
+        source: [advisor-match.booking]
+        detail-type: [ClientConsultationBooked]
+      Targets:
+        - Id: crm-queue
+          Arn: !GetAtt CrmQueue.Arn
+          RetryPolicy: {MaximumRetryAttempts: 10, MaximumEventAgeInSeconds: 3600}
+          DeadLetterConfig: {Arn: !GetAtt CrmDeadLetterQueue.Arn}
+
+  CrmSyncRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRole
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: crm-sync-least-privilege
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes]
+                Resource: !GetAtt CrmQueue.Arn
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub ${DataBucket.Arn}/crm-outbox/*
+              - Effect: Allow
+                Action: dynamodb:UpdateItem
+                Resource: !GetAtt BookingsTable.Arn
+              - Effect: Allow
+                Action: [kms:Decrypt, kms:GenerateDataKey]
+                Resource: !GetAtt DataKey.Arn
+
+  CrmSyncFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${Prefix}-crm-sync
+      Runtime: python3.12
+      Architectures: [x86_64]
+      Handler: crm_sync.lambda_handler
+      Role: !If [CreateRole, !GetAtt CrmSyncRole.Arn, !Ref ExistingLambdaRoleArn]
+      MemorySize: 256
+      Timeout: 30
+      TracingConfig: {Mode: Active}
+      LoggingConfig: {LogGroup: !Ref CrmLogGroup}
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref LambdaCodeKey
+      Environment:
+        Variables:
+          DATA_BUCKET: !Ref DataBucket
+          BOOKINGS_TABLE: !Ref BookingsTable
+          CRM_WEBHOOK_URL: !Ref CrmWebhookUrl
+
+  CrmLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /${Prefix}/crm-sync
+      RetentionInDays: 30
+
+  CrmQueueMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt CrmQueue.Arn
+      FunctionName: !Ref CrmSyncFunction
+      BatchSize: 10
+      FunctionResponseTypes: [ReportBatchItemFailures]
+
+  # ---------------- observability + cost guardrails (SKILL-12) ----------------
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${Prefix}-alarms
+      Subscription: !If
+        - HasAlertEmail
+        - [{Protocol: email, Endpoint: !Ref AlertEmail}]
+        - !Ref AWS::NoValue
+
+  AgentErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Agent Lambda is throwing errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions: [{Name: FunctionName, Value: !Ref AgentFunction}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  AgentLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: p95 chat latency is above 30 seconds
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions: [{Name: FunctionName, Value: !Ref AgentFunction}]
+      ExtendedStatistic: p95
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 30000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  CrmDeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Bookings failed to sync to the CRM and are parked in the dead-letter queue
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions: [{Name: QueueName, Value: !GetAtt CrmDeadLetterQueue.QueueName}]
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  BookingEventFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: A booking could not be published to the event bus (it will not reach the CRM)
+      Namespace: AdvisorMatch
+      MetricName: BookingEventFailed
+      Dimensions: [{Name: Service, Value: agent}]
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+
+  MonthlyBudget:
+    Type: AWS::Budgets::Budget
+    Condition: HasAlertEmail
+    Properties:
+      Budget:
+        BudgetName: !Sub ${Prefix}-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref MonthlyBudgetUsd, Unit: USD}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
 
   # ---------------- frontend ----------------
   WebBucket:
@@ -296,6 +584,14 @@ Outputs:
     Value: !GetAtt AgentUrl.FunctionUrl
   FunctionName:
     Value: !Ref AgentFunction
+  AgentLogGroupName:
+    Value: !Ref AgentLogGroup
+  CrmLogGroupName:
+    Value: !Ref CrmLogGroup
+  EventBusName:
+    Value: !Ref EventBus
+  CrmDeadLetterQueueUrl:
+    Value: !Ref CrmDeadLetterQueue
   DataBucketName:
     Value: !Ref DataBucket
   WebBucketName:

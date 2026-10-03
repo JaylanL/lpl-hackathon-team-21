@@ -113,6 +113,18 @@ html.contrast .msg.bot { border: 1px solid #fff; }
 .tag { font-size: .75rem; background: var(--accent-soft); color: var(--ink); border-radius: 6px; padding: 2px 8px; }
 .match a { font-size: .85rem; color: var(--accent); }
 .match .choose { margin-top: 8px; width: 100%; }
+.score { font-size: .85rem; font-weight: 700; color: var(--good); margin-top: 2px; }
+.why { font-size: .85rem; margin: 6px 0; }
+.why ul { margin: 4px 0; padding-left: 18px; }
+.disclosure { font-size: .8rem; border-top: 1px solid var(--line); padding-top: 6px; margin: 6px 0; }
+.progress { margin: 0 0 12px; }
+.progress-label { display: flex; justify-content: space-between; font-size: .8rem; color: var(--ink-2); margin-bottom: 4px; }
+.progress-track { height: 8px; background: var(--accent-soft); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+@media (prefers-reduced-motion: reduce) { .progress-fill { transition: none; } }
+.crm { margin-left: 8px; font-size: .75rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.crm.ok { color: var(--good); border-color: currentColor; }
+.compliance { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .booking-card { margin-top: 16px; padding: 14px; border-color: var(--good); }
 .booking-card h3 { margin: 0 0 6px; color: var(--good); font-size: 1rem; }
 

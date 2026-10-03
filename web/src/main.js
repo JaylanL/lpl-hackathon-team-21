@@ -34,6 +34,16 @@ const T = {
     micStart: "Start speaking", micStop: "Stop speaking", choose: "Choose this advisor", verify: "Verify on FINRA BrokerCheck",
     booked: "You're booked!", with: "with", when: "When", chooseMsg: (n) => `I'd like to meet with ${n}.`,
     error: "Sorry, something went wrong. Please try again.",
+    progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
+    langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
+    reason: {
+      language: (v, t) => `Speaks ${t.langNames[v] ?? v}, your preferred language`,
+      meeting: (v) => (v === "in-person" ? "Offers in-person meetings" : "Offers virtual meetings"),
+      focus: (v) => `Focuses on ${v}`,
+      availability: (n) => `${n} open first-meeting slot${n === 1 ? "" : "s"}`,
+    },
+    driversNote: "Ranked mostly by", drivers: { expertise: "fit with your goals", language: "language", meeting: "meeting type", availability: "availability" },
+    feeLabel: "How they're paid", formCrs: "You'll get a Form CRS: a short summary of services, fees and conflicts of interest.",
   },
   es: {
     tagline: "Encuentre a su asesor. Llegue preparado.", tabInvestor: "Inversionista", tabAdvisor: "Asesor", tabDashboard: "Panel de negocio",
@@ -56,6 +66,16 @@ const T = {
     micStart: "Empezar a hablar", micStop: "Dejar de hablar", choose: "Elegir este asesor", verify: "Verificar en FINRA BrokerCheck",
     booked: "¡Cita reservada!", with: "con", when: "Cuándo", chooseMsg: (n) => `Me gustaría reunirme con ${n}.`,
     error: "Lo siento, algo salió mal. Intente de nuevo.",
+    progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
+    langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
+    reason: {
+      language: (v, t) => `Habla ${t.langNames[v] ?? v}, su idioma preferido`,
+      meeting: (v) => (v === "in-person" ? "Ofrece reuniones presenciales" : "Ofrece reuniones virtuales"),
+      focus: (v) => `Se especializa en: ${v}`,
+      availability: (n) => `${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}`,
+    },
+    driversNote: "Clasificado principalmente por", drivers: { expertise: "afinidad con sus metas", language: "idioma", meeting: "tipo de reunión", availability: "disponibilidad" },
+    feeLabel: "Cómo cobra", formCrs: "Recibirá un Form CRS: un resumen breve de servicios, costos y conflictos de interés.",
   },
   zh: {
     languageLabel: "语言", textSize: "文字大小", settings: "设置", prefContrast: "高对比度", prefRead: "朗读回复",
@@ -64,10 +84,20 @@ const T = {
     howStep2Title: "2. 认识 3 位匹配顾问", howStep2Body: "查看符合您目标、语言和时间安排的三位顾问，并了解每位顾问适合您的简单原因。您可以在 FINRA BrokerCheck 上核实他们。",
     howStep3Title: "3. 做好会面准备", howStep3Body: "预约时间并获得个人准备清单：简单解释的关键术语、可以提出的问题以及需要携带的材料。您的顾问也会收到一份目标摘要。",
     howFootnote: "免费使用。我们帮助您做好准备，而不是替您投资：您的顾问会提供建议。",
+    progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
+    langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
+    reason: {
+      language: (v, t) => `会说${t.langNames[v] ?? v}，您偏好的语言`,
+      meeting: (v) => (v === "in-person" ? "提供面对面会议" : "提供线上会议"),
+      focus: (v) => `专注于：${v}`,
+      availability: (n) => `${n} 个可预约时段`,
+    },
+    driversNote: "主要排序依据", drivers: { expertise: "与您目标的契合度", language: "语言", meeting: "会议方式", availability: "可预约时间" },
+    feeLabel: "收费方式", formCrs: "您将收到 Form CRS：一份关于服务、费用和利益冲突的简短说明。",
   },
 };
 const LANGUAGE_NAMES = { en: "English", es: "Spanish", zh: "Mandarin" };
-const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null };
+const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null, lastMatches: [] };
 const t = (k) => (T[state.lang] ?? T.en)[k] ?? T.en[k];
 
 function applyI18n() {
@@ -154,7 +184,8 @@ async function send(text) {
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
-    if (res.matches) renderMatches(res.matches);
+    if (res.progress) renderProgress(res.progress);
+    if (res.matches) renderMatches((state.lastMatches = res.matches));
     if (res.booking) renderBooking(res.booking, res.briefing);
     if (state.autoread) speak(res.reply);
   } catch (e) {
@@ -167,17 +198,39 @@ async function send(text) {
   }
 }
 
+// Intake progress (how many preference slots are filled), announced politely to screen readers.
+function renderProgress(p) {
+  const box = $("#intake-progress");
+  box.hidden = false;
+  $("#progress-val").textContent = `${p.percent}%`;
+  box.querySelector(".progress-track").setAttribute("aria-valuenow", p.percent);
+  box.querySelector(".progress-fill").style.width = `${p.percent}%`;
+}
+
+// Explainable match notes: deterministic reasons from the ranking, rendered in the user's language.
+function reasonText(r) {
+  const L = T[state.lang] ?? T.en;
+  const fn = (L.reason ?? T.en.reason)[r.code];
+  return fn ? fn(r.value, L.langNames ? L : T.en) : "";
+}
+
 function renderMatches(list) {
   const box = $("#matches");
   box.innerHTML = "";
   list.forEach((a) => {
     const card = document.createElement("article");
     card.className = "match";
+    const reasons = (a.reasons || []).map(reasonText).filter(Boolean);
+    const drivers = (a.drivers || []).map((d) => t("drivers")[d] ?? d).join(", ");
+    const d = a.disclosure;
     card.innerHTML = `
       <h3>${esc(a.name)}${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3>
+      ${a.match_score != null ? `<div class="score">${esc(t("matchScore")(a.match_score))}</div>` : ""}
       <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
       <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
+      ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
       <p class="meta">${esc(a.bio)}</p>
+      ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model)} · ${esc(d.platform)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
       <a href="${a.brokercheck_url}" target="_blank" rel="noopener">${t("verify")} ↗</a>
       <button class="secondary choose" type="button">${t("choose")}</button>`;
     card.querySelector(".choose").onclick = () => send(T[state.lang].chooseMsg(a.name));
@@ -230,7 +283,8 @@ async function loadBookings() {
       el.className = "bk";
       el.innerHTML = `
         <h3>${esc(b.prospect_name || "New prospect")} → ${esc(b.advisor_name || b.advisor_id)}</h3>
-        <div class="meta">First meeting: ${esc(b.time_slot || "")}</div>
+        <div class="meta">First meeting: ${esc(b.time_slot || "")}
+          ${b.crm_status ? `<span class="crm ${b.crm_status === "synced" ? "ok" : ""}">${b.crm_status === "synced" ? "✓ Synced to CRM" : "CRM sync pending"}</span>` : ""}</div>
         <dl>
           <dt>Goals</dt><dd>${esc(br.goals || "—")}</dd>
           <dt>Worries</dt><dd>${esc(br.worries || "—")}</dd>
@@ -267,6 +321,12 @@ async function loadMetrics() {
         }
       }
     });
+    // Compliance guardrails at work: blocked PII and guardrail interventions (never shown as funnel drop-off).
+    const pii = funnel.pii_blocked || 0, gr = funnel.guardrail_blocked || 0;
+    const c = document.createElement("div");
+    c.className = "meta compliance";
+    c.textContent = `Compliance today: ${pii} message${pii === 1 ? "" : "s"} with personal identifiers blocked · ${gr} guardrail intervention${gr === 1 ? "" : "s"}`;
+    box.appendChild(c);
   } catch (e) { box.innerHTML = `<p class="msg error">${esc(e.message)}</p>`; }
 }
 
@@ -315,6 +375,7 @@ async function init() {
       option.setAttribute("aria-pressed", active);
     });
     applyI18n();
+    if ($("#matches .match")) renderMatches(state.lastMatches || []);
   }));
   document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
     const size = Number(button.dataset.size);

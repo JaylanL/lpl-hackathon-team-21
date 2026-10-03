@@ -2,6 +2,8 @@
 # Advisor Match - one-command deploy for AWS CloudShell (us-east-1).
 # Usage:  bash deploy.sh
 # Optional env vars:  MODEL_ID=<inference profile id>  EXISTING_ROLE_ARN=<lambda role arn>  RESEED=1
+#                     ALERT_EMAIL=<you@example.com> (alarms + monthly budget)  BUDGET_USD=50
+#                     CRM_WEBHOOK_URL=<https endpoint that receives synced bookings>
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -54,7 +56,8 @@ echo "Embeddings model OK"
 say "3/8 Packaging the agent Lambda"
 ART_BUCKET="${PREFIX}-artifacts-${ACCOUNT}-${REGION}"
 aws s3api head-bucket --bucket "$ART_BUCKET" 2>/dev/null || aws s3 mb "s3://$ART_BUCKET" >/dev/null
-python3 -c "import zipfile; z=zipfile.ZipFile('/tmp/agent.zip','w',zipfile.ZIP_DEFLATED); z.write('backend/lambda_function.py','lambda_function.py'); z.close()"
+# One code bundle for both functions: the agent (lambda_function.py) and the CRM consumer (crm_sync.py).
+python3 -c "import glob, os, zipfile; z=zipfile.ZipFile('/tmp/agent.zip','w',zipfile.ZIP_DEFLATED); [z.write(f, os.path.basename(f)) for f in sorted(glob.glob('backend/*.py'))]; z.close()"
 if [ ! -f build/strands-layer.zip ]; then
   echo "Building the Strands Agents layer for Python 3.12 (one time, ~1-2 min)..."
   rm -rf /tmp/strands-layer && mkdir -p /tmp/strands-layer/python build
@@ -83,7 +86,8 @@ say "4/8 Deploying CloudFormation stack '$STACK' (first run ~5-8 min, CloudFront
 if ! aws cloudformation deploy --stack-name "$STACK" --template-file template.yaml \
     --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset \
     --parameter-overrides Prefix="$PREFIX" ArtifactBucket="$ART_BUCKET" LambdaCodeKey="$CODE_KEY" \
-      LayerKey="$LAYER_KEY" ModelId="$MODEL_ID" ExistingLambdaRoleArn="${EXISTING_ROLE_ARN:-}"; then
+      LayerKey="$LAYER_KEY" ModelId="$MODEL_ID" ExistingLambdaRoleArn="${EXISTING_ROLE_ARN:-}" \
+      AlertEmail="${ALERT_EMAIL:-}" MonthlyBudgetUsd="${BUDGET_USD:-50}" CrmWebhookUrl="${CRM_WEBHOOK_URL:-}"; then
   echo; echo "Stack failed. First errors:"
   aws cloudformation describe-stack-events --stack-name "$STACK" \
     --query "StackEvents[?contains(ResourceStatus,'FAILED')].[LogicalResourceId,ResourceStatusReason]" \
@@ -94,6 +98,7 @@ fi
 out() { aws cloudformation describe-stacks --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
 WEB_URL=$(out WebUrl); API_URL=$(out ApiUrl); DATA_BUCKET=$(out DataBucketName); WEB_BUCKET=$(out WebBucketName)
 DIST_ID=$(out DistributionId); POOL_ID=$(out IdentityPoolId); FN=$(out FunctionName)
+LOGS=$(out AgentLogGroupName); CRM_LOGS=$(out CrmLogGroupName)
 API_URL="${API_URL%/}"
 
 say "5/8 Seeding fictional demo advisors (with Titan embeddings)"
@@ -114,14 +119,15 @@ curl -s -m 30 "$API_URL/health" ; echo
 REPLY=$(curl -s -m 95 -X POST "$API_URL/chat" -H 'content-type: application/json' \
   -d '{"message":"Hi, I am 26 and want to buy a house in 5 years. I prefer virtual meetings in English."}')
 echo "$REPLY" | head -c 600; echo
-echo "$REPLY" | grep -q '"reply"' || echo "(Agent call did not return a reply - check logs: aws logs tail /aws/lambda/$FN --since 10m)"
+echo "$REPLY" | grep -q '"reply"' || echo "(Agent call did not return a reply - check logs: aws logs tail $LOGS --since 10m)"
 
 say "8/8 Done"
 cat <<EOF
 
   Web app:        $WEB_URL      (may take a few minutes to load the first time)
   Agent API:      $API_URL
-  Lambda logs:    aws logs tail /aws/lambda/$FN --follow
+  Agent logs:     aws logs tail $LOGS --follow
+  CRM sync logs:  aws logs tail $CRM_LOGS --follow
   Redeploy:       bash deploy.sh        (safe to re-run any time)
   Fresh advisors: RESEED=1 bash deploy.sh
   Tear down:      bash teardown.sh
