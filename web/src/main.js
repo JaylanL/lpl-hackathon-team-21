@@ -41,6 +41,13 @@ const T = {
     dirLanguage: "Language", dirMeeting: "Meeting type", dirAny: "Any", dirVirtual: "Virtual", dirInPerson: "In person", dirSearch: "Search", dirSearchPh: "e.g. home buyers, Miami",
     dirCount: (n, total) => `Showing ${n} of ${total} advisors`, dirEmpty: "No advisors match these filters. Try removing one.",
     openSlots: (n) => (n > 0 ? `Accepting new clients · ${n} open slot${n === 1 ? "" : "s"}` : "Not accepting new clients right now"), askToMeet: "Ask to meet",
+    bookTitle: (n) => `Book a first meeting with ${n}`, bkFirstName: "Your first name", bkDate: "Date", bkTime: "Time",
+    bkPickDate: "Pick a date first", bkNoTimes: "No open times that day. Try another date.", bkTaken: "taken",
+    bkPurpose: "What would you like to talk about?", bkPurposePh: "e.g. Saving for a first home while paying off student loans",
+    bkPurposeHint: "Optional. Please don't include phone numbers, emails or account numbers.",
+    bkSubmit: "Book meeting", bkSave: "Save changes", bkCancel: "Cancel", bkChange: "Change details",
+    bkSaved: "Changes saved.", bkWeekdays: "Weekdays only, advisor's local time.", bkPurposeLabel: "Meeting about",
+    bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
     progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
     langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
     reason: {
@@ -78,6 +85,13 @@ const T = {
     dirLanguage: "Idioma", dirMeeting: "Tipo de reunión", dirAny: "Cualquiera", dirVirtual: "Virtual", dirInPerson: "Presencial", dirSearch: "Buscar", dirSearchPh: "p. ej. compradores de casa, Miami",
     dirCount: (n, total) => `Mostrando ${n} de ${total} asesores`, dirEmpty: "Ningún asesor coincide con estos filtros. Quite alguno.",
     openSlots: (n) => (n > 0 ? `Acepta clientes nuevos · ${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}` : "No acepta clientes nuevos por ahora"), askToMeet: "Pedir reunión",
+    bookTitle: (n) => `Reserve una primera reunión con ${n}`, bkFirstName: "Su nombre", bkDate: "Fecha", bkTime: "Hora",
+    bkPickDate: "Primero elija una fecha", bkNoTimes: "No hay horarios libres ese día. Pruebe otra fecha.", bkTaken: "ocupado",
+    bkPurpose: "¿De qué le gustaría hablar?", bkPurposePh: "p. ej. Ahorrar para mi primera casa mientras pago préstamos estudiantiles",
+    bkPurposeHint: "Opcional. No incluya números de teléfono, correos ni números de cuenta.",
+    bkSubmit: "Reservar reunión", bkSave: "Guardar cambios", bkCancel: "Cancelar", bkChange: "Cambiar detalles",
+    bkSaved: "Cambios guardados.", bkWeekdays: "Solo días laborables, hora local del asesor.", bkPurposeLabel: "Tema",
+    bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
     progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
     langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
     reason: {
@@ -100,6 +114,13 @@ const T = {
     dirLanguage: "语言", dirMeeting: "会议方式", dirAny: "不限", dirVirtual: "线上", dirInPerson: "面对面", dirSearch: "搜索", dirSearchPh: "例如：首次购房、Miami",
     dirCount: (n, total) => `显示 ${n} / ${total} 位顾问`, dirEmpty: "没有符合这些条件的顾问。请尝试移除一个筛选条件。",
     openSlots: (n) => (n > 0 ? `接受新客户 · ${n} 个可预约时段` : "目前不接受新客户"), askToMeet: "申请会面",
+    bookTitle: (n) => `预约与 ${n} 的首次会面`, bkFirstName: "您的名字", bkDate: "日期", bkTime: "时间",
+    bkPickDate: "请先选择日期", bkNoTimes: "当天没有空闲时间，请选择其他日期。", bkTaken: "已约满",
+    bkPurpose: "您想谈些什么？", bkPurposePh: "例如：在偿还学生贷款的同时为首套房储蓄",
+    bkPurposeHint: "选填。请勿填写电话号码、电子邮件或账户号码。",
+    bkSubmit: "预约会面", bkSave: "保存更改", bkCancel: "取消", bkChange: "修改详情",
+    bkSaved: "更改已保存。", bkWeekdays: "仅限工作日，顾问当地时间。", bkPurposeLabel: "会面主题",
+    bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
     progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
     langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
     reason: {
@@ -237,7 +258,7 @@ async function speak(text) {
 }
 
 // ---------- chat ----------
-async function send(text, selectedAdvisorId) {
+async function send(text, extra = {}) {
   text = (text || "").trim();
   if (!text || state.busy) return;
   stopDictation();
@@ -248,17 +269,18 @@ async function send(text, selectedAdvisorId) {
   $("#msg").value = "";
   const typing = addMsg("bot", t("thinking"), { cls: "typing" });
   try {
-    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...(selectedAdvisorId ? { selected_advisor_id: selectedAdvisorId } : {}) });
+    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...extra });
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
     if (res.progress) renderProgress(res.progress);
     if (res.matches) renderMatches((state.lastMatches = res.matches));
-    if (res.booking) renderBooking(res.booking, res.briefing);
+    if (res.booking) { saveBookingLocally(res.booking); renderBooking(res.booking); }
     if (state.autoread) speak(res.reply);
   } catch (e) {
     typing.remove();
     addMsg("bot", `${t("error")} (${e.message})`, { cls: "error" });
+    if (extra.booking) throw e;
   } finally {
     state.busy = false;
     $("#send").disabled = false;
@@ -301,19 +323,135 @@ function renderMatches(list) {
       <p class="meta">${esc(a.bio)}</p>
       ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model)} · ${esc(d.platform)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
       <button class="secondary choose" type="button">${t("choose")}</button>`;
-    card.querySelector(".choose").onclick = () => send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name));
+    card.querySelector(".choose").onclick = () => openBookingForm(a);
     wirePhotoFallbacks(card);
     box.appendChild(card);
   });
 }
 
-function renderBooking(b, briefing) {
+// ---------- booking: pick a date, a time and what the meeting is about ----------
+const BOOKING_KEY = "advisor-match.booking";
+function saveBookingLocally(b) {
+  state.booking = b;
+  try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, booking: b })); } catch (_) {}
+}
+function restoreBooking() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null");
+    if (saved?.booking?.booking_id) { state.sessionId = saved.sessionId; state.booking = saved.booking; renderBooking(saved.booking); }
+  } catch (_) {}
+}
+
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function nextWeekday(from) {
+  const d = new Date(from);
+  do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
+  return d;
+}
+function friendlyDate(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const loc = { en: "en-US", es: "es-US", zh: "zh-CN" }[state.lang] || "en-US";
+  return new Date(y, m - 1, d).toLocaleDateString(loc, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+// advisor: {advisor_id, name}; existing: a booking to edit (date, time and purpose prefilled)
+function openBookingForm(advisor, existing = null) {
+  const box = $("#booking");
+  const today = new Date();
+  const min = isoDay(nextWeekday(today));
+  const max = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 60));
+  const purpose = existing?.meeting_purpose || "";
+  box.innerHTML = `
+    <form class="booking-form" id="booking-form" novalidate>
+      <h3>${esc(t("bookTitle")(advisor.name))}</h3>
+      ${existing ? "" : `<label for="bk-name">${esc(t("bkFirstName"))}
+        <input id="bk-name" name="first_name" required maxlength="40" autocomplete="given-name" /></label>`}
+      <div class="bk-row">
+        <label for="bk-date">${esc(t("bkDate"))}
+          <input id="bk-date" type="date" required min="${min}" max="${max}" value="${esc(existing?.meeting_date || min)}" /></label>
+        <label for="bk-time">${esc(t("bkTime"))}
+          <select id="bk-time" required><option value="">${esc(t("bkPickDate"))}</option></select></label>
+      </div>
+      <p class="fineprint">${esc(t("bkWeekdays"))}</p>
+      <label for="bk-purpose">${esc(t("bkPurpose"))}
+        <textarea id="bk-purpose" rows="3" maxlength="500" placeholder="${esc(t("bkPurposePh"))}">${esc(purpose)}</textarea></label>
+      <div class="bk-hint"><span class="fineprint">${esc(t("bkPurposeHint"))}</span><span class="fineprint" id="bk-count"></span></div>
+      <p class="form-error" id="bk-error" role="alert"></p>
+      <div class="bk-actions">
+        <button type="submit" class="primary" id="bk-submit">${esc(existing ? t("bkSave") : t("bkSubmit"))}</button>
+        <button type="button" class="secondary" id="bk-cancel">${esc(t("bkCancel"))}</button>
+      </div>
+    </form>`;
+  const form = $("#booking-form"), dateEl = $("#bk-date"), timeEl = $("#bk-time"), purposeEl = $("#bk-purpose"), err = $("#bk-error");
+  const count = () => ($("#bk-count").textContent = t("bkChars")(purposeEl.value.length, 500));
+  purposeEl.oninput = () => { count(); err.textContent = ""; };
+  count();
+
+  async function loadTimes() {
+    err.textContent = "";
+    timeEl.innerHTML = `<option value="">${esc(t("thinking"))}</option>`;
+    try {
+      const { times } = await post("/availability", { advisor_id: advisor.advisor_id, date: dateEl.value });
+      const keep = existing && dateEl.value === existing.meeting_date ? existing.meeting_time : null;
+      const open = (s) => s.available || s.time === keep;
+      if (!times.some(open)) { timeEl.innerHTML = `<option value="">${esc(t("bkNoTimes"))}</option>`; return; }
+      timeEl.innerHTML = times.map((s) =>
+        `<option value="${s.time}" ${open(s) ? "" : "disabled"}>${esc(s.label)}${open(s) ? "" : ` (${esc(t("bkTaken"))})`}</option>`).join("");
+      timeEl.value = keep || times.find(open).time;
+    } catch (e) {
+      timeEl.innerHTML = `<option value="">${esc(t("bkPickDate"))}</option>`;
+      err.textContent = e.message;
+    }
+  }
+  dateEl.onchange = loadTimes;
+  loadTimes();
+
+  $("#bk-cancel").onclick = () => { if (state.booking) renderBooking(state.booking); else box.innerHTML = ""; };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    err.textContent = "";
+    const first = $("#bk-name")?.value.trim();
+    if (!existing && !first) { err.textContent = t("bkFirstName"); $("#bk-name").focus(); return; }
+    if (!timeEl.value) { err.textContent = t("bkPickDate"); timeEl.focus(); return; }
+    const submit = $("#bk-submit");
+    submit.disabled = true;
+    try {
+      if (existing) {
+        const { booking } = await post("/bookings/update", {
+          booking_id: existing.booking_id, session_id: state.sessionId, date: dateEl.value, time: timeEl.value,
+          purpose: purposeEl.value, lang: LANGUAGE_NAMES[state.lang],
+        });
+        saveBookingLocally(booking);
+        renderBooking(booking, t("bkSaved"));
+      } else {
+        const when = `${friendlyDate(dateEl.value)}, ${timeEl.selectedOptions[0].textContent}`;
+        await send((T[state.lang] ?? T.en).bkChatMsg?.(advisor.name, when) ?? T.en.bkChatMsg(advisor.name, when), {
+          booking: { advisor_id: advisor.advisor_id, first_name: first, date: dateEl.value, time: timeEl.value, purpose: purposeEl.value },
+        });
+      }
+    } catch (e2) {
+      err.textContent = e2.message;
+    } finally {
+      if (document.body.contains(submit)) submit.disabled = false;
+    }
+  };
+  (existing ? dateEl : $("#bk-name")).focus();
+  box.scrollIntoView({ block: "nearest" });
+}
+
+function renderBooking(b, notice = "") {
+  const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
+  const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
   $("#booking").innerHTML = `
     <div class="booking-card" role="status">
       <h3>✓ ${t("booked")}</h3>
       <div>${esc(b.prospect_name)} ${t("with")} <strong>${esc(b.advisor_name)}</strong></div>
-      <div class="meta">${t("when")}: ${esc(b.time_slot)}</div>
+      <div class="meta">${t("when")}: ${esc(when)}</div>
+      ${b.meeting_purpose ? `<div class="meta">${esc(t("bkPurposeLabel"))}: ${esc(b.meeting_purpose)}</div>` : ""}
+      ${notice ? `<p class="saved-note">${esc(notice)}</p>` : ""}
+      ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
     </div>`;
+  $("#bk-change")?.addEventListener("click", () => openBookingForm({ advisor_id: b.advisor_id, name: b.advisor_name }, b));
 }
 
 // ---------- dictation ----------
@@ -372,7 +510,7 @@ function renderDirectory() {
       <button class="secondary choose" type="button" ${a.open_slots > 0 ? "" : "disabled"}>${esc(t("askToMeet"))}</button>`;
     card.querySelector(".choose").onclick = () => {
       showView("investor");
-      send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name), a.advisor_id);
+      openBookingForm(a);
     };
     wirePhotoFallbacks(card);
     box.appendChild(card);
@@ -396,6 +534,7 @@ async function loadBookings() {
         <div class="meta">First meeting: ${esc(b.time_slot || "")}
           ${b.crm_status ? `<span class="crm ${b.crm_status === "synced" ? "ok" : ""}">${b.crm_status === "synced" ? "✓ Synced to CRM" : "CRM sync pending"}</span>` : ""}</div>
         <dl>
+          ${b.meeting_purpose ? `<dt>Meeting about</dt><dd>${esc(b.meeting_purpose)}</dd>` : ""}
           <dt>Goals</dt><dd>${esc(br.goals || "—")}</dd>
           <dt>Worries</dt><dd>${esc(br.worries || "—")}</dd>
           <dt>Explain simply</dt><dd>${esc(br.topics_to_explain || "—")}</dd>
@@ -512,6 +651,7 @@ async function init() {
     applyI18n();
     if ($("#matches .match")) renderMatches(state.lastMatches || []);
     renderDirectory();
+    if (state.booking && $("#booking .booking-card")) renderBooking(state.booking);
   }));
   document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
     const size = Number(button.dataset.size);
@@ -548,6 +688,7 @@ async function init() {
   calcRoi();
   applyI18n();
   addMsg("bot", t("greeting"));
+  restoreBooking();
   if (!CFG.apiUrl) addMsg("bot", "Setup note: config.json has no apiUrl yet. Run the deploy script.", { cls: "error" });
 }
 init();

@@ -1,6 +1,6 @@
 """CRM sync consumer (SKILL-05 crm_sync_scheduling_agent + SKILL-10 event-driven pipeline).
 
-EventBridge (ClientConsultationBooked) -> SQS (with DLQ) -> this Lambda.
+EventBridge (ClientConsultationBooked / ClientConsultationUpdated) -> SQS (with DLQ) -> this Lambda.
 For each booking it writes a ClientWorks-shaped record to s3://DATA_BUCKET/crm-outbox/<booking_id>.json,
 optionally POSTs it to CRM_WEBHOOK_URL with exponential backoff, and marks the booking as synced.
 Failed records are reported individually so SQS retries only those (and parks repeat failures in the DLQ).
@@ -34,6 +34,12 @@ def to_crm_record(detail):
         "advisor_id": booking["advisor_id"],
         "prospect": {"first_name": booking.get("prospect_name", "")},  # first name is the only PII captured
         "first_meeting": booking.get("time_slot", ""),
+        "meeting": {
+            "date": booking.get("meeting_date", ""),
+            "time": booking.get("meeting_time", ""),
+            "purpose": booking.get("meeting_purpose", ""),
+            "updated_at": booking.get("updated_at", ""),
+        },
         "behavioral_brief": {
             "goals": briefing.get("goals", ""),
             "worries": briefing.get("worries", ""),
