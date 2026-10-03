@@ -3,7 +3,8 @@
 Routes (Lambda Function URL, JSON in / JSON out):
   POST /chat      {message, session_id?, lang?, simple?} -> {session_id, reply, progress, matches?, booking?, briefing?}
   POST /speak     {text, lang?}                           -> {audio_b64}
-  POST /metrics   {day?}                                  -> {day, funnel}
+    POST /metrics   {range?, start_date?, end_date?}         -> {start_date, end_date, funnel}
+    POST /insights  {funnel, start_date?, end_date?}         -> {recommendations}
   POST /bookings  {}                                      -> {bookings}
   POST /advisors  {language?, meeting_type?, text?}       -> {advisors, total}
   POST /availability {advisor_id, date}                   -> {date, times: [{time, label, available}]}
@@ -166,6 +167,69 @@ def embed(text):
 
 def today():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+
+
+def metric_dates(kind, start_date=None, end_date=None):
+    current = datetime.datetime.now(datetime.timezone.utc).date()
+    if kind == "daily":
+        return current, current
+    if kind == "quarterly":
+        quarter_start_month = ((current.month - 1) // 3) * 3 + 1
+        return current.replace(month=quarter_start_month, day=1), current
+    if kind == "custom":
+        try:
+            start = datetime.date.fromisoformat(start_date or "")
+            end = datetime.date.fromisoformat(end_date or "")
+        except ValueError as exc:
+            raise ValueError("custom metrics require valid start_date and end_date") from exc
+        if start > end:
+            raise ValueError("start_date must be on or before end_date")
+        return start, end
+    return current.replace(year=2000, month=1, day=1), current
+
+
+def actionable_insights(funnel):
+    matched = int(funnel.get("matched", 0) or 0)
+    booked = int(funnel.get("booked", 0) or 0)
+    briefed = int(funnel.get("briefing_sent", 0) or 0)
+    conversion = round(booked / matched * 100) if matched else 0
+    recommendations = []
+    if not matched:
+        recommendations.append({
+            "priority": "high",
+            "title": "Create the first proof point",
+            "body": "Run 3 to 5 golden-path intakes so the demo can show advisor matches, booking momentum, and a before-and-after story.",
+            "metric": "matched = 0",
+        })
+    elif conversion < 25:
+        recommendations.append({
+            "priority": "high",
+            "title": "Improve match-to-meeting conversion",
+            "body": "Show the best-fit advisor first, explain why they fit, and offer two concrete meeting times immediately after matching.",
+            "metric": f"conversion = {conversion}%",
+        })
+    else:
+        recommendations.append({
+            "priority": "positive",
+            "title": "Scale the matching motion",
+            "body": "Conversion is showing momentum. The biggest upside now comes from routing more qualified prospects into the same guided experience.",
+            "metric": f"conversion = {conversion}%",
+        })
+    if matched and briefed / matched < 0.8:
+        recommendations.append({
+            "priority": "medium",
+            "title": "Close the advisor handoff loop",
+            "body": "Increase briefing completion so advisors receive goals and concerns before the meeting. This protects the value of the match beyond the first click.",
+            "metric": f"briefing rate = {round(briefed / matched * 100)}%",
+        })
+    if matched >= 3:
+        recommendations.append({
+            "priority": "medium",
+            "title": "Make the value easy to prove",
+            "body": "Lead the pitch with matches delivered, booking rate, and modeled fee opportunity. Pair modeled value with observed counts.",
+            "metric": f"{matched} matches observed",
+        })
+    return recommendations
 
 
 def log_event(stage, session_id):
@@ -671,6 +735,36 @@ def lambda_handler(event, context):
             return respond(200, {"ok": True, "model": os.environ["MODEL_ID"]})
 
         if path == "/chat":
+            message = (body.get("message") or "").strip()
+            if not message:
+                return respond(400, {"error": "message is required"})
+            UI.clear()
+            session_id = body.get("session_id") or uuid.uuid4().hex
+            UI["session_id"] = session_id
+            if not body.get("session_id"):
+                log_event("intake_started", session_id)
+            if body.get("simple"):
+                message += "\n\n(Please explain in very simple words.)"
+                lang_hint = {"es": "Spanish", "zh": "Simplified Chinese"}.get(body.get("lang"))
+                if lang_hint:
+                    message += f"\n\n(Please reply in {lang_hint}.)"
+            agent = Agent(
+                model=MODEL,
+                system_prompt=SYSTEM_PROMPT,
+                callback_handler=None,
+                tools=[search_advisors, book_meeting, create_advisor_briefing],
+                session_manager=S3SessionManager(session_id=session_id, bucket=DATA_BUCKET, prefix="sessions/"),
+            )
+            result = agent(message)
+            extras = {k: v for k, v in UI.items() if k != "session_id"}
+            return respond(200, {"session_id": session_id, "reply": str(result).strip(), **extras})
+
+        if path == "/speak":
+            text = (body.get("text") or "")[:2900]
+            if not text:
+                return respond(400, {"error": "text is required"})
+            voice = {"es": "Lupe", "zh": "Zhiyu"}.get(body.get("lang"), "Joanna")
+            audio = POLLY.synthesize_speech(Text=text, OutputFormat="mp3", VoiceId=voice, Engine="neural")
             return chat(body)
 
         if path == "/speak":
@@ -680,12 +774,33 @@ def lambda_handler(event, context):
             return respond(200, {"audio_b64": base64.b64encode(audio["AudioStream"].read()).decode()})
 
         if path == "/metrics":
-            day = body.get("day") or today()
-            items = FUNNEL.query(KeyConditionExpression=Key("day").eq(day))["Items"]
+            kind = body.get("range") or "daily"
+            start, end = metric_dates(kind, body.get("start_date"), body.get("end_date"))
+            counts = {}
+            if kind == "all":
+                page = FUNNEL.scan()
+                items = page.get("Items", [])
+                while page.get("LastEvaluatedKey"):
+                    page = FUNNEL.scan(ExclusiveStartKey=page["LastEvaluatedKey"])
+                    items.extend(page.get("Items", []))
+            else:
+                items = []
+                day = start
+                while day <= end:
+                    response = FUNNEL.query(KeyConditionExpression=Key("day").eq(day.isoformat()))
+                    items.extend(response.get("Items", []))
+                    day += datetime.timedelta(days=1)
             counts = {}
             for i in items:
                 counts[i["stage"]] = counts.get(i["stage"], 0) + 1
-            return respond(200, {"day": day, "funnel": counts})
+            return respond(200, {"range": kind, "start_date": start.isoformat(), "end_date": end.isoformat(), "funnel": counts})
+
+        if path == "/insights":
+            funnel = body.get("funnel") or {}
+            return respond(200, {
+                "source": "advisor-match-lambda",
+                "recommendations": actionable_insights(funnel),
+            })
 
         if path == "/availability":
             req = AvailabilityRequest(**body)

@@ -180,6 +180,12 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
 .booking-card h3 { margin: 0 0 6px; color: var(--good); font-size: 1rem; }
 
 .section-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.report-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 18px 0 4px; }
+.report-toolbar label, .custom-range label { display: grid; gap: 4px; color: var(--ink-2); font-size: .78rem; font-weight: 700; }
+.report-toolbar select, .report-toolbar input { min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; }
+.report-toolbar select { min-width: 124px; }
+.custom-range { display: flex; gap: 8px; }
+.export-button { margin-left: auto; }
 .bookings { display: grid; gap: 14px; margin-top: 12px; }
 .bk { padding: 16px 18px; }
 .bk h3 { margin: 0 0 4px; font-size: 1.05rem; }
@@ -187,7 +193,25 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
 .bk dt { font-weight: 600; color: var(--ink-2); }
 .bk dd { margin: 0; }
 
+.dashboard-note { display: flex; align-items: center; gap: 8px; margin: 20px 0 12px; color: var(--ink-2); font-size: .82rem; }
+.dashboard-note strong { color: var(--ink); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 4px rgba(31, 122, 77, .12); }
+.impact-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.impact-kpi { display: grid; gap: 4px; min-height: 142px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.impact-kpi.accent { border-color: var(--accent); background: var(--accent-soft); }
+.impact-kpi strong { font-size: 2rem; line-height: 1.1; letter-spacing: -0.02em; }
+.kpi-context { color: var(--ink-2); font-size: .76rem; }
+.dashboard-columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px; margin-top: 22px; }
+.dashboard-section-title { margin-top: 0; }
+.recommendations { display: grid; gap: 10px; }
+.recommendation { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 14px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.recommendation.positive { border-left-color: var(--good); }
+.recommendation-number { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: .8rem; }
+.recommendation.positive .recommendation-number { background: #e5f3eb; color: var(--good); }
+.recommendation p { margin: 4px 0 0; color: var(--ink-2); font-size: .8rem; line-height: 1.5; }
+.recommendation small { display: block; margin-top: 8px; color: var(--accent); font-size: .7rem; font-weight: 700; }
 .funnel { padding: 16px 18px; display: grid; gap: 10px; margin-top: 12px; }
+.dashboard-columns .funnel { margin-top: 0; height: calc(100% - 38px); align-content: start; }
 .frow { display: grid; grid-template-columns: 170px 1fr 56px; gap: 12px; align-items: center; }
 .frow .bar { height: 28px; background: var(--accent); border-radius: 6px; min-width: 4px; }
 .frow .val { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
@@ -196,6 +220,7 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
 
 .roi { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 18px; }
 @media (max-width: 760px) { .roi { grid-template-columns: 1fr; } .frow { grid-template-columns: 120px 1fr 48px; } }
+@media (max-width: 900px) { .impact-kpis { grid-template-columns: repeat(2, 1fr); } .dashboard-columns { grid-template-columns: 1fr; } }
 @media (max-width: 1100px) { .investor-grid { grid-template-columns: minmax(200px, .7fr) minmax(0, 1.3fr); } .side { grid-column: 1 / -1; } }
 @media (max-width: 600px) {
   body { padding-bottom: 70px; }
@@ -218,6 +243,14 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
   .composer textarea { min-height: 48px; }
   .chat-card { padding-bottom: 150px; }
   .msg { max-width: 94%; }
+  .impact-kpis { gap: 8px; }
+  .impact-kpi { min-height: 126px; padding: 12px; }
+  .impact-kpi strong { font-size: 1.55rem; }
+  .dashboard-note { flex-wrap: wrap; }
+  .report-toolbar { align-items: stretch; }
+  .report-toolbar > label, .custom-range { width: 100%; }
+  .custom-range label { flex: 1; }
+  .export-button { width: 100%; margin-left: 0; }
 }
 @keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 .roi-inputs { display: grid; gap: 14px; }
