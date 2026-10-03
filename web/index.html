@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Advisor Match helps first-time investors find the right advisor and feel ready for the first meeting." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>Advisor Match</title>
   </head>
   <body>
@@ -23,10 +26,22 @@
       </nav>
     </header>
 
-    <div class="prefs" role="group" aria-label="Display and accessibility options">
-      <label class="toggle"><input type="checkbox" id="pref-es" /> <span>Español</span></label>
-      <label class="toggle"><input type="checkbox" id="pref-simple" /> <span data-i18n="prefSimple">Explain simply</span></label>
-      <label class="toggle"><input type="checkbox" id="pref-large" /> <span data-i18n="prefLarge">Larger text</span></label>
+    <button type="button" id="settings-toggle" class="settings-toggle" aria-expanded="false" aria-controls="settings-panel">⚙ <span data-i18n="settings">Settings</span></button>
+    <div id="settings-panel" class="prefs" role="group" aria-label="Display and accessibility options">
+      <div class="language-picker">
+        <span class="pref-label" data-i18n="languageLabel">Language</span>
+        <div class="language-options" role="group" aria-label="Choose language">
+          <button type="button" class="language-option active" data-lang="en" aria-pressed="true">English</button>
+          <button type="button" class="language-option" data-lang="es" lang="es" aria-pressed="false">Español</button>
+          <button type="button" class="language-option" data-lang="zh" lang="zh" aria-pressed="false">中文</button>
+        </div>
+      </div>
+      <div class="text-size-control" role="group" aria-label="Text size">
+        <span class="pref-label" data-i18n="textSize">Text size</span>
+        <button type="button" class="size-option active" data-size="100" aria-pressed="true">A</button>
+        <button type="button" class="size-option" data-size="112" aria-pressed="false">A+</button>
+        <button type="button" class="size-option" data-size="125" aria-pressed="false">A++</button>
+      </div>
       <label class="toggle"><input type="checkbox" id="pref-contrast" /> <span data-i18n="prefContrast">High contrast</span></label>
       <label class="toggle"><input type="checkbox" id="pref-autoread" /> <span data-i18n="prefRead">Read replies aloud</span></label>
     </div>
@@ -35,6 +50,16 @@
       <!-- Investor -->
       <section id="view-investor" role="tabpanel" aria-labelledby="tab-investor" class="view">
         <div class="investor-grid">
+          <aside class="how-it-works" aria-labelledby="how-it-works-title">
+            <p class="eyebrow" data-i18n="howEyebrow">Advisor Match</p>
+            <h2 id="how-it-works-title" class="h2" data-i18n="howTitle">How it works</h2>
+            <ol>
+              <li><strong data-i18n="howStep1Title">1. Tell us your goals</strong><span data-i18n="howStep1Body">Chat or speak in your own words: what you're saving for, what worries you, and how you like to meet. There are no wrong answers.</span></li>
+              <li><strong data-i18n="howStep2Title">2. Meet 3 matches</strong><span data-i18n="howStep2Body">See three advisors who fit your goals, language and schedule, with a plain-language reason for each one. Verify any of them on FINRA BrokerCheck.</span></li>
+              <li><strong data-i18n="howStep3Title">3. Walk in ready</strong><span data-i18n="howStep3Body">Book a time and get a personal prep kit: key terms explained simply, questions to ask, and what to bring. Your advisor gets a briefing too, so you start with your goals, not paperwork.</span></li>
+            </ol>
+            <p class="how-footnote" data-i18n="howFootnote">Free to use. We help you prepare, not invest: your advisor gives the advice.</p>
+          </aside>
           <div class="chat-card">
             <h1 class="h1" data-i18n="investorTitle">Let's find the right advisor for you</h1>
             <p class="lead" data-i18n="investorLead">Answer a few quick questions by typing or speaking. It takes about 3 minutes, and there are no wrong answers.</p>
