@@ -792,6 +792,19 @@ def lambda_handler(event, context):
             audio = POLLY.synthesize_speech(Text=req.text[:2900], OutputFormat="mp3", VoiceId=voice, Engine="neural")
             return respond(200, {"audio_b64": base64.b64encode(audio["AudioStream"].read()).decode()})
 
+        if path == "/translate":
+            text = (body.get("text") or "").strip()
+            target = {"en": "English", "es": "Spanish", "zh": "Simplified Chinese"}.get(body.get("lang"), "English")
+            if not text:
+                return respond(400, {"error": "text is required"})
+            result = BR.converse(
+                modelId=os.environ["MODEL_ID"],
+                messages=[{"role": "user", "content": [{"text": f"Translate the following text into {target}. Return only the translation, with no explanation. Preserve markdown and line breaks.\n\n{text[:6000]}"}]}],
+                inferenceConfig={"temperature": 0.1, "maxTokens": 1800},
+            )
+            translated = result["output"]["message"]["content"][0]["text"].strip()
+            return respond(200, {"text": translated, "lang": body.get("lang", "en")})
+
         if path == "/metrics":
             kind = body.get("range") or "daily"
             start, end = metric_dates(kind, body.get("year"), body.get("month"), body.get("quarter"), body.get("start_date"), body.get("end_date"))
