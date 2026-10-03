@@ -452,9 +452,6 @@ MODEL = BedrockModel(
     model_id=os.environ["MODEL_ID"],
     temperature=0.3,
     max_tokens=1200,
-    guardrail_id=os.environ["GUARDRAIL_ID"],
-    guardrail_version=os.environ["GUARDRAIL_VERSION"],
-    guardrail_latest_message=True,
 )
 
 
@@ -517,11 +514,6 @@ def chat(body):
     started = time.time()
     result = agent(message)
     emit_metric("ChatLatency", round((time.time() - started) * 1000, 1), "Milliseconds")
-
-    # SKILL-07: guardrail interventions are recorded for compliance review.
-    if getattr(result, "stop_reason", None) == "guardrail_intervened":
-        add_compliance_flag(session_id, "guardrail_blocked")
-        emit_metric("GuardrailInterventions")
 
     if "progress" not in UI:
         UI["progress"] = matching.intake_progress(get_state(session_id)["slots"])
