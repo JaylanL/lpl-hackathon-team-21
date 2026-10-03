@@ -154,6 +154,8 @@ def book_meeting(advisor_id: str, prospect_name: str, time_slot: str) -> dict:
         time_slot: the day and time they chose, in plain words.
     """
     adv = next((a for a in advisors() if a["advisor_id"] == advisor_id), None)
+    if adv and adv["open_slots"] > 0:
+        adv["open_slots"] -= 1  # reflect reduced availability for the rest of this warm container's life
     booking = {
         "booking_id": uuid.uuid4().hex[:10],
         "advisor_id": advisor_id,
