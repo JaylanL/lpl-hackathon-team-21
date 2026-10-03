@@ -19,7 +19,7 @@ const T = {
     languageLabel: "Language", textSize: "Text size", settings: "Settings", prefContrast: "High contrast", prefRead: "Read replies aloud",
     howEyebrow: "Advisor Match", howTitle: "How it works",
     howStep1Title: "1. Tell us your goals", howStep1Body: "Chat or speak in your own words: what you're saving for, what worries you, and how you like to meet. There are no wrong answers.",
-    howStep2Title: "2. Meet 3 matches", howStep2Body: "See three advisors who fit your goals, language and schedule, with a plain-language reason for each one. Verify any of them on FINRA BrokerCheck.",
+    howStep2Title: "2. Meet 3 matches", howStep2Body: "See three advisors who fit your goals, language and schedule, with a plain-language reason for each one.",
     howStep3Title: "3. Walk in ready", howStep3Body: "Book a time and get a personal prep kit: key terms explained simply, questions to ask, and what to bring. Your advisor gets a briefing too, so you start with your goals, not paperwork.",
     howFootnote: "Free to use. We help you prepare, not invest: your advisor gives the advice.",
     investorTitle: "Let's find the right advisor for you",
@@ -32,7 +32,7 @@ const T = {
     roiTitle: "Business impact calculator (illustrative)", roiNote: "Move the sliders to model scenarios. Assumptions are inputs, not forecasts.",
     greeting: "Hi! I'm Advisor Match. I'll ask a few short questions and then show you advisors who fit you. To start: what's one money goal you have right now?",
     readAloud: "Read aloud", thinking: "Thinking…", listening: "Listening… speak now. Tap the mic again to stop.",
-    micStart: "Start speaking", micStop: "Stop speaking", choose: "Choose this advisor", verify: "Verify on FINRA BrokerCheck",
+    micStart: "Start speaking", micStop: "Stop speaking", choose: "Choose this advisor",
     booked: "You're booked!", with: "with", when: "When", chooseMsg: (n) => `I'd like to meet with ${n}.`,
     error: "Sorry, something went wrong. Please try again.",
     tabDirectory: "All advisors", dirTitle: "All advisors", dirLead: "Browse every advisor, not just your top matches. Filter by language or meeting type, then ask to meet anyone who looks right.",
@@ -55,7 +55,7 @@ const T = {
     languageLabel: "Idioma", textSize: "Tamaño del texto", settings: "Ajustes", prefContrast: "Alto contraste", prefRead: "Leer respuestas en voz alta",
     howEyebrow: "Advisor Match", howTitle: "Cómo funciona",
     howStep1Title: "1. Cuéntenos sus metas", howStep1Body: "Escriba o hable con sus propias palabras: para qué está ahorrando, qué le preocupa y cómo prefiere reunirse. No hay respuestas incorrectas.",
-    howStep2Title: "2. Conozca 3 opciones", howStep2Body: "Vea tres asesores que coinciden con sus metas, idioma y horario, con una explicación sencilla de cada coincidencia. Verifique cualquiera en FINRA BrokerCheck.",
+    howStep2Title: "2. Conozca 3 opciones", howStep2Body: "Vea tres asesores que coinciden con sus metas, idioma y horario, con una explicación sencilla de cada coincidencia.",
     howStep3Title: "3. Llegue preparado", howStep3Body: "Reserve una cita y reciba una guía personal: conceptos clave explicados de forma sencilla, preguntas para hacer y qué llevar. Su asesor también recibe un resumen de sus metas.",
     howFootnote: "Uso gratuito. Le ayudamos a prepararse, no a invertir: su asesor le da el consejo.",
     investorTitle: "Encontremos al asesor ideal para usted",
@@ -68,7 +68,7 @@ const T = {
     roiTitle: "Calculadora de impacto (ilustrativa)", roiNote: "Mueva los controles para modelar escenarios.",
     greeting: "¡Hola! Soy Advisor Match. Le haré unas preguntas cortas y luego le mostraré asesores ideales para usted. Para empezar: ¿cuál es una meta de dinero que tiene ahora?",
     readAloud: "Leer en voz alta", thinking: "Pensando…", listening: "Escuchando… hable ahora. Toque el micrófono otra vez para parar.",
-    micStart: "Empezar a hablar", micStop: "Dejar de hablar", choose: "Elegir este asesor", verify: "Verificar en FINRA BrokerCheck",
+    micStart: "Empezar a hablar", micStop: "Dejar de hablar", choose: "Elegir este asesor",
     booked: "¡Cita reservada!", with: "con", when: "Cuándo", chooseMsg: (n) => `Me gustaría reunirme con ${n}.`,
     error: "Lo siento, algo salió mal. Intente de nuevo.",
     tabDirectory: "Todos los asesores", dirTitle: "Todos los asesores", dirLead: "Vea a todos los asesores, no solo sus mejores coincidencias. Filtre por idioma o tipo de reunión y pida reunirse con quien le parezca bien.",
@@ -90,7 +90,7 @@ const T = {
     languageLabel: "语言", textSize: "文字大小", settings: "设置", prefContrast: "高对比度", prefRead: "朗读回复",
     howEyebrow: "Advisor Match", howTitle: "使用方法",
     howStep1Title: "1. 告诉我们您的目标", howStep1Body: "用自己的话输入或说出您正在为什​​么储蓄、担心什么，以及喜欢怎样见面。没有错误答案。",
-    howStep2Title: "2. 认识 3 位匹配顾问", howStep2Body: "查看符合您目标、语言和时间安排的三位顾问，并了解每位顾问适合您的简单原因。您可以在 FINRA BrokerCheck 上核实他们。",
+    howStep2Title: "2. 认识 3 位匹配顾问", howStep2Body: "查看符合您目标、语言和时间安排的三位顾问，并了解每位顾问适合您的简单原因。",
     howStep3Title: "3. 做好会面准备", howStep3Body: "预约时间并获得个人准备清单：简单解释的关键术语、可以提出的问题以及需要携带的材料。您的顾问也会收到一份目标摘要。",
     howFootnote: "免费使用。我们帮助您做好准备，而不是替您投资：您的顾问会提供建议。",
     tabDirectory: "所有顾问", dirTitle: "所有顾问", dirLead: "浏览所有顾问，而不仅仅是您的最佳匹配。按语言或会议方式筛选，然后向合适的顾问申请会面。",
@@ -244,7 +244,6 @@ function renderMatches(list) {
       ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
       <p class="meta">${esc(a.bio)}</p>
       ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model)} · ${esc(d.platform)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
-      <a href="${a.brokercheck_url}" target="_blank" rel="noopener">${t("verify")} ↗</a>
       <button class="secondary choose" type="button">${t("choose")}</button>`;
     card.querySelector(".choose").onclick = () => send((T[state.lang] ?? T.en).chooseMsg?.(a.name) ?? T.en.chooseMsg(a.name));
     wirePhotoFallbacks(card);
@@ -314,7 +313,6 @@ function renderDirectory() {
       <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
       <p class="meta">${esc(a.bio)}</p>
       <div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model || "")} · ${esc(d.platform || "")}</div>
-      <a href="${a.brokercheck_url}" target="_blank" rel="noopener">${t("verify")} ↗</a>
       <button class="secondary choose" type="button" ${a.open_slots > 0 ? "" : "disabled"}>${esc(t("askToMeet"))}</button>`;
     card.querySelector(".choose").onclick = () => {
       showView("investor");

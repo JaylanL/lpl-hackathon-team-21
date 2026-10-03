@@ -111,7 +111,6 @@ html.contrast .msg.bot { border: 1px solid #fff; }
 .meta { font-size: .85rem; color: var(--ink-2); margin: 4px 0; }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .tag { font-size: .75rem; background: var(--accent-soft); color: var(--ink); border-radius: 6px; padding: 2px 8px; }
-.match a { font-size: .85rem; color: var(--accent); }
 .match .choose { margin-top: 8px; width: 100%; }
 .score { font-size: .85rem; font-weight: 700; color: var(--good); margin-top: 2px; }
 .why { font-size: .85rem; margin: 6px 0; }

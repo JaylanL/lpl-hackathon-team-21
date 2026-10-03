@@ -204,7 +204,6 @@ def directory(advisors, language="", meeting_type="", text=""):
             continue
         item = {k: a[k] for k in DIRECTORY_FIELDS if k in a}
         item["disclosure"] = fee_disclosure(a)
-        item["brokercheck_url"] = "https://brokercheck.finra.org/"
         out.append(item)
     # Accepting new clients first, then alphabetical, so the order is neutral (no paid placement).
     out.sort(key=lambda a: (a.get("open_slots", 0) <= 0, a["name"]))

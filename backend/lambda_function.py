@@ -166,7 +166,6 @@ def public_advisor(scored, ahp, prefs):
     out = {k: a[k] for k in ("advisor_id", "name", "city", "languages", "meeting_types", "focus", "bio")}
     if a.get("photo_url"):
         out["photo_url"] = a["photo_url"]
-    out["brokercheck_url"] = "https://brokercheck.finra.org/"
     out["match_score"] = round(scored["score"] * 100)
     out["fit"] = "Strong fit" if scored["score"] >= 0.75 else "Good fit"
     out["reasons"] = matching.match_reasons(a, scored["criteria"], prefs)
