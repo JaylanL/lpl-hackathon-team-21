@@ -137,8 +137,10 @@
         <div class="report-toolbar" role="group" aria-label="Report period and export controls">
           <label for="metrics-range">Reporting period
             <select id="metrics-range">
+              <option value="month">Month</option>
+              <option value="quarter">Quarter</option>
+              <option value="year">Year</option>
               <option value="daily">Daily</option>
-              <option value="quarterly">Quarterly</option>
               <option value="all">All time</option>
               <option value="custom">Custom range</option>
             </select>
@@ -154,6 +156,9 @@
               <option value="07">July</option><option value="08">August</option><option value="09">September</option>
               <option value="10">October</option><option value="11">November</option><option value="12">December</option>
             </select>
+          </label>
+          <label for="metrics-quarter">Quarter
+            <select id="metrics-quarter"><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4">Q4</option></select>
           </label>
           <div id="custom-range" class="custom-range" hidden>
             <label for="metrics-start">From <input id="metrics-start" type="date" /></label>

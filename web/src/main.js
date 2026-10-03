@@ -653,19 +653,15 @@ function setupMetricDateSelectors() {
     .map((value) => `<option value="${value}">${value}</option>`).join("");
   $("#metrics-year").value = String(year);
   $("#metrics-month").value = String(new Date().getUTCMonth() + 1).padStart(2, "0");
+  $("#metrics-quarter").value = String(Math.floor(new Date().getUTCMonth() / 3) + 1);
 }
 
 function applyYearMonthRange() {
   const year = $("#metrics-year").value;
   const month = $("#metrics-month").value;
   if (!year) return;
-  $("#metrics-range").value = "custom";
-  $("#custom-range").hidden = false;
-  const startMonth = month || "01";
-  const endMonth = month || "12";
-  const lastDay = new Date(Date.UTC(Number(year), Number(endMonth), 0)).getUTCDate();
-  $("#metrics-start").value = `${year}-${startMonth}-01`;
-  $("#metrics-end").value = `${year}-${endMonth}-${String(lastDay).padStart(2, "0")}`;
+  $("#metrics-range").value = month ? "month" : "year";
+  $("#custom-range").hidden = true;
   loadMetrics();
 }
 
@@ -674,7 +670,9 @@ async function loadMetrics() {
   box.innerHTML = `<p class="muted">${t("thinking")}</p>`;
   try {
     const range = $("#metrics-range").value;
-    const request = { range };
+    const request = { range, year: Number($("#metrics-year").value) };
+    if (range === "month") request.month = Number($("#metrics-month").value);
+    if (range === "quarter") request.quarter = Number($("#metrics-quarter").value);
     if (range === "custom") {
       request.start_date = $("#metrics-start").value;
       request.end_date = $("#metrics-end").value;
@@ -892,15 +890,11 @@ async function init() {
   $("#refresh-metrics").onclick = loadMetrics;
   $("#metrics-range").onchange = (e) => {
     $("#custom-range").hidden = e.target.value !== "custom";
-    if (e.target.value !== "custom") {
-      const today = new Date();
-      $("#metrics-year").value = String(today.getUTCFullYear());
-      $("#metrics-month").value = e.target.value === "daily" ? String(today.getUTCMonth() + 1).padStart(2, "0") : "";
-      loadMetrics();
-    }
+    if (e.target.value !== "custom") loadMetrics();
   };
   $("#metrics-year").onchange = applyYearMonthRange;
   $("#metrics-month").onchange = applyYearMonthRange;
+  $("#metrics-quarter").onchange = loadMetrics;
   $("#metrics-start").onchange = loadMetrics;
   $("#metrics-end").onchange = loadMetrics;
   $("#export-metrics").onclick = exportMetricsCsv;
