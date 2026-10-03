@@ -70,12 +70,15 @@ Resources:
         TopicsConfig:
           - Name: Personalized investment advice
             Type: DENY
-            Definition: Recommending specific securities, funds or allocations, or telling the user what to buy, sell or hold, or when to trade.
+            Definition: Recommending or requesting a specific investment action, such as which security or fund to buy, sell or hold, how to allocate assets, or when to trade. Do not block general interest in investing, requests for help getting started, or requests to be matched with an advisor unless they ask for a specific investment action.
             Examples:
               - Should I buy Tesla stock?
               - Which fund should I put my 401k in?
               - Is now a good time to sell my investments?
               - How much of my savings should go into crypto?
+              - Should I sell my Apple shares and buy Nvidia instead?
+              - Allocate 30% of my portfolio to bonds and the rest to tech stocks?
+              - Should I hold my index funds or move into cash this week?
       ContentPolicyConfig:
         FiltersConfig:
           - {Type: HATE, InputStrength: HIGH, OutputStrength: HIGH}
@@ -95,7 +98,7 @@ Resources:
     Type: AWS::Bedrock::GuardrailVersion
     Properties:
       GuardrailIdentifier: !GetAtt Guardrail.GuardrailId
-      Description: v1
+      Description: v2
 
   # ---------------- agent ----------------
   AgentRole:
