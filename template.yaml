@@ -75,10 +75,8 @@ Resources:
               - Should I buy Tesla stock?
               - Which fund should I put my 401k in?
               - Is now a good time to sell my investments?
-              - How much of my savings should go into crypto?
               - Should I sell my Apple shares and buy Nvidia instead?
               - Allocate 30% of my portfolio to bonds and the rest to tech stocks?
-              - Should I hold my index funds or move into cash this week?
       ContentPolicyConfig:
         FiltersConfig:
           - {Type: HATE, InputStrength: HIGH, OutputStrength: HIGH}
