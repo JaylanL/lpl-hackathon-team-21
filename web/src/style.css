@@ -65,6 +65,8 @@ main { max-width: 1480px; margin: 0 auto; padding: 34px 28px 48px; }
 .investor-grid { display: grid; grid-template-columns: minmax(300px, .95fr) minmax(620px, 1.8fr) minmax(300px, .9fr); gap: 26px; align-items: start; }
 .chat-card, .side, .booking-card, .bk, .roi, .funnel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .chat-card { padding: clamp(18px, 4vw, 32px); box-shadow: 0 18px 45px rgba(16, 42, 67, .1); }
+.chat-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.chat-collapse { display: none; }
 .how-it-works { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 12px 30px rgba(16, 42, 67, .06); }
 .how-it-works .eyebrow { margin: 0; color: var(--accent); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .how-it-works .h2 { margin: 4px 0 18px; }
@@ -237,6 +239,11 @@ html.contrast .primary.danger { background: #ffb4a8; border-color: #ffb4a8; colo
   .text-size-control .pref-label { margin-right: auto; }
   main { padding: 22px 12px 32px; }
   .chat-card { padding: 18px 14px; }
+  .chat-collapse { display: block; flex: 0 0 auto; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-2); font: inherit; font-size: .72rem; cursor: pointer; }
+  .chat-heading .h1 { font-size: 1.2rem; }
+  body.chat-collapsed .chat { display: none; }
+  body.chat-collapsed .chat-card { padding-bottom: 88px; }
+  body.chat-collapsed .chat-card > .lead, body.chat-collapsed .chat-card > .chips { display: none; }
   .investor-grid { grid-template-columns: 1fr; }
   .how-it-works { order: -1; padding: 16px; }
   .composer { position: fixed; z-index: 18; right: 0; bottom: 64px; left: 0; padding: 8px 12px; background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(16, 42, 67, .12); }
