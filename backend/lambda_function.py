@@ -607,6 +607,7 @@ def chat(body):
                              "progress": matching.intake_progress(get_state(session_id)["slots"])})
 
     message = req.message + ("\n\n(Please explain in very simple words.)" if req.simple else "")
+    message += f"\n\n(Please reply in {req.lang}.)"
     # Picked from the advisor directory: the ID comes from the real inventory, so it may be booked (SKILL-02).
     if req.selected_advisor_id:
         picked = next((a for a in advisors() if a["advisor_id"] == req.selected_advisor_id), None)
