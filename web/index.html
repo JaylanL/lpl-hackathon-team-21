@@ -21,6 +21,7 @@
       </div>
       <nav class="tabs" role="tablist" aria-label="Views">
         <button role="tab" id="tab-investor" aria-controls="view-investor" aria-selected="true" data-view="investor" data-i18n="tabInvestor">Investor</button>
+        <button role="tab" id="tab-directory" aria-controls="view-directory" aria-selected="false" data-view="directory" tabindex="-1" data-i18n="tabDirectory">All advisors</button>
         <button role="tab" id="tab-advisor" aria-controls="view-advisor" aria-selected="false" data-view="advisor" tabindex="-1" data-i18n="tabAdvisor">Advisor</button>
         <button role="tab" id="tab-dashboard" aria-controls="view-dashboard" aria-selected="false" data-view="dashboard" tabindex="-1" data-i18n="tabDashboard">Business dashboard</button>
       </nav>
@@ -55,7 +56,7 @@
             <h2 id="how-it-works-title" class="h2" data-i18n="howTitle">How it works</h2>
             <ol>
               <li><strong data-i18n="howStep1Title">1. Tell us your goals</strong><span data-i18n="howStep1Body">Chat or speak in your own words: what you're saving for, what worries you, and how you like to meet. There are no wrong answers.</span></li>
-              <li><strong data-i18n="howStep2Title">2. Meet 3 matches</strong><span data-i18n="howStep2Body">See three advisors who fit your goals, language and schedule, with a plain-language reason for each one. Verify any of them on FINRA BrokerCheck.</span></li>
+              <li><strong data-i18n="howStep2Title">2. Meet 3 matches</strong><span data-i18n="howStep2Body">See three advisors who fit your goals, language and schedule, with a plain-language reason for each one.</span></li>
               <li><strong data-i18n="howStep3Title">3. Walk in ready</strong><span data-i18n="howStep3Body">Book a time and get a personal prep kit: key terms explained simply, questions to ask, and what to bring. Your advisor gets a briefing too, so you start with your goals, not paperwork.</span></li>
             </ol>
             <p class="how-footnote" data-i18n="howFootnote">Free to use. We help you prepare, not invest: your advisor gives the advice.</p>
@@ -81,10 +82,35 @@
           </div>
           <aside class="side" aria-label="Your matches and booking">
             <h2 class="h2" data-i18n="matchesTitle">Your matches</h2>
+            <p id="matches-announcement" class="sr-only" aria-live="polite"></p>
             <div id="matches" class="matches"><p class="muted" data-i18n="matchesEmpty">Your top 3 advisors will appear here, with the reasons each one fits you.</p></div>
             <div id="booking"></div>
+            <p id="booking-announcement" class="sr-only" aria-live="polite"></p>
           </aside>
         </div>
+      </section>
+
+      <!-- Advisor directory -->
+      <section id="view-directory" role="tabpanel" aria-labelledby="tab-directory" class="view" hidden>
+        <div class="section-head">
+          <div>
+            <h1 class="h1" data-i18n="dirTitle">All advisors</h1>
+            <p class="lead" data-i18n="dirLead">Browse every advisor, not just your top matches. Filter by language or meeting type, then ask to meet anyone who looks right.</p>
+          </div>
+        </div>
+        <form id="dir-filters" class="dir-filters" role="search" autocomplete="off">
+          <label for="dir-lang"><span data-i18n="dirLanguage">Language</span>
+            <select id="dir-lang"><option value="" data-i18n="dirAny">Any</option><option value="English">English</option><option value="Spanish">Español</option><option value="Mandarin">中文</option></select>
+          </label>
+          <label for="dir-meeting"><span data-i18n="dirMeeting">Meeting type</span>
+            <select id="dir-meeting"><option value="" data-i18n="dirAny">Any</option><option value="virtual" data-i18n="dirVirtual">Virtual</option><option value="in-person" data-i18n="dirInPerson">In person</option></select>
+          </label>
+          <label for="dir-text" class="dir-search"><span data-i18n="dirSearch">Search</span>
+            <input id="dir-text" type="search" placeholder="e.g. home buyers, Miami" data-i18n-ph="dirSearchPh" />
+          </label>
+        </form>
+        <p id="dir-count" class="meta" aria-live="polite"></p>
+        <div id="directory" class="directory"></div>
       </section>
 
       <!-- Advisor -->
