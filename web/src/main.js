@@ -633,9 +633,11 @@ function stopDictation() {
 async function toggleMic() {
   if (state.dictation) { stopDictation(); return; }
   try {
-    const base = $("#msg").value.trim();
     state.dictation = await startDictation(CFG, state.lang, (text) => {
-      $("#msg").value = (base ? base + " " : "") + text;
+      const nextText = text.trim();
+      if (!nextText) return;
+      $("#msg").value = nextText;
+      $("#msg").dispatchEvent(new Event("input", { bubbles: true }));
     });
     $("#mic").setAttribute("aria-pressed", "true");
     $("#mic").setAttribute("aria-label", t("micStop"));
@@ -952,6 +954,11 @@ async function init() {
   $("#composer").onsubmit = (e) => { e.preventDefault(); send($("#msg").value); };
   $("#msg").onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("#msg").value); } };
   $("#mic").onclick = toggleMic;
+  $("#chat-collapse").onclick = () => {
+    const collapsed = document.body.classList.toggle("chat-collapsed");
+    $("#chat-collapse").setAttribute("aria-expanded", String(!collapsed));
+    $("#chat-collapse").textContent = collapsed ? "Show chat" : "Hide chat";
+  };
   document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.textContent)));
   $("#refresh-bookings").onclick = loadBookings;
   $("#dir-filters").onsubmit = (e) => { e.preventDefault(); loadDirectory(); };

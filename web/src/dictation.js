@@ -95,6 +95,9 @@ function startWebSpeech(lang, onText) {
 }
 
 export async function startDictation(cfg, lang, onText) {
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const browserSpeech = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (isMobile && browserSpeech) return startWebSpeech(lang, onText);
   if (cfg.identityPoolId) {
     try {
       return await startTranscribe(cfg, onText);
