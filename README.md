@@ -26,7 +26,9 @@ Optional: `ALERT_EMAIL=you@example.com bash deploy.sh` turns on alarm emails and
 
 ## API (Function URL)
 POST /chat {message, session_id?, simple?, selected_advisor_id?}; POST /speak {text, lang}; POST /metrics; POST /bookings;
-POST /advisors {language?, meeting_type?, text?} (full advisor list for the "All advisors" tab); GET /health
+POST /advisors {language?, meeting_type?, text?} (full advisor list for the "All advisors" tab);
+POST /availability {advisor_id, date} (open times); POST /bookings/update {booking_id, session_id, date?, time?, purpose?}
+(save changes to a booking); /chat also takes booking {advisor_id, first_name, date, time, purpose} from the booking form; GET /health
 
 ## Architecture skills
 The coding-agent skills are in `skills/` (from `test1`); how each one maps onto this app: docs/skills-applied.md.

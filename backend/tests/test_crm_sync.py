@@ -32,7 +32,8 @@ def event(*details):
 
 
 DETAIL = {
-    "booking": {"booking_id": "b1", "advisor_id": "adv-901", "prospect_name": "Ana", "time_slot": "Tue 6pm"},
+    "booking": {"booking_id": "b1", "advisor_id": "adv-901", "prospect_name": "Ana", "time_slot": "Tue 6pm",
+                "meeting_date": "2026-10-13", "meeting_time": "18:00", "meeting_purpose": "Plan for a first home"},
     "briefing": {"goals": "Buy a home"},
     "preferences": {"language": "Spanish"},
 }
@@ -53,6 +54,7 @@ def test_sync_writes_outbox_and_marks_booking(monkeypatch):
     rec = s3.objects["crm-outbox/b1.json"]
     assert rec["prospect"] == {"first_name": "Ana"}
     assert rec["behavioral_brief"]["intake_preferences"] == {"language": "Spanish"}
+    assert rec["meeting"] == {"date": "2026-10-13", "time": "18:00", "purpose": "Plan for a first home", "updated_at": ""}
     assert ddb.table.updates[0]["ExpressionAttributeValues"][":s"] == "synced"
 
 

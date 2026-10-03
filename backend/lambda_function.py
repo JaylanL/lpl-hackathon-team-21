@@ -6,6 +6,9 @@ Routes (Lambda Function URL, JSON in / JSON out):
   POST /metrics   {day?}                                  -> {day, funnel}
   POST /bookings  {}                                      -> {bookings}
   POST /advisors  {language?, meeting_type?, text?}       -> {advisors, total}
+  POST /availability {advisor_id, date}                   -> {date, times: [{time, label, available}]}
+  POST /bookings/update {booking_id, session_id, date?, time?, purpose?} -> {booking}
+/chat also accepts booking: {advisor_id, first_name, date, time, purpose} from the booking form.
   GET  /health                                            -> {ok}
 
 Matching logic lives in matching.py, metrics/logging in observability.py, CRM sync in crm_sync.py.
@@ -22,12 +25,14 @@ from typing import Optional
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 from pydantic import BaseModel, Field, ValidationError
 from strands import Agent, tool
 from strands.models import BedrockModel
 from strands.session.s3_session_manager import S3SessionManager
 
 import matching
+import scheduling
 from observability import emit_metric, log
 
 S3 = boto3.client("s3")
@@ -69,8 +74,10 @@ Tools:
   language, meeting type or availability), pass it as most_important. Then briefly say why each
   advisor fits (one line each, using the reasons the tool returned) and ask which one they'd like
   to meet and what day/time works.
-- When they choose an advisor and a time, ask for their first name if you don't have it,
+- The app has a booking form where they pick a date, a time and what the meeting is for. When they
+  choose an advisor, tell them to use it. If they only chat, ask for their first name and a time,
   then call book_meeting with the advisor_id exactly as search_advisors returned it.
+- If a message says the meeting is already booked, never call book_meeting again.
 - Right after booking, call create_advisor_briefing, then give the user a short
   "First Meeting Ready" kit: 3 terms explained simply, 4 questions to ask (always include
   "How are you paid?" and "What will this cost me?"), and a what-to-bring checklist.
@@ -85,12 +92,35 @@ Rules:
 
 
 # ---------- request schemas (SKILL-09: validate every request) ----------
+class BookingForm(BaseModel):
+    advisor_id: str = Field(pattern=r"^adv-[0-9]{1,6}$")
+    first_name: str = Field(min_length=1, max_length=40)
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: str = Field(pattern=r"^\d{2}:\d{2}$")
+    purpose: str = Field(default="", max_length=scheduling.MAX_PURPOSE_CHARS)
+
+
+class AvailabilityRequest(BaseModel):
+    advisor_id: str = Field(pattern=r"^adv-[0-9]{1,6}$")
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class BookingUpdate(BaseModel):
+    booking_id: str = Field(pattern=r"^[a-f0-9]{10}$")
+    session_id: str = Field(pattern=r"^[A-Za-z0-9-]{8,64}$")
+    date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    time: Optional[str] = Field(default=None, pattern=r"^\d{2}:\d{2}$")
+    purpose: Optional[str] = Field(default=None, max_length=scheduling.MAX_PURPOSE_CHARS)
+    lang: str = "English"
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     session_id: Optional[str] = Field(default=None, pattern=r"^[A-Za-z0-9-]{8,64}$")
     lang: str = "English"
     simple: bool = False
     selected_advisor_id: Optional[str] = Field(default=None, pattern=r"^adv-[0-9]{1,6}$")
+    booking: Optional[BookingForm] = None
 
 
 class DirectoryRequest(BaseModel):
@@ -188,7 +218,7 @@ def respond(status, payload):
     }
 
 
-def publish_booking_event(booking, briefing, slots):
+def publish_booking_event(booking, briefing, slots, detail_type="ClientConsultationBooked"):
     """SKILL-05/10: hand the booking to the CRM pipeline asynchronously (EventBridge -> SQS -> crm_sync)."""
     if not EVENT_BUS:
         return
@@ -196,13 +226,102 @@ def publish_booking_event(booking, briefing, slots):
               "preferences": {k: v for k, v in slots.items() if k != "worries"}}
     res = EVENTS.put_events(Entries=[{
         "Source": "advisor-match.booking",
-        "DetailType": "ClientConsultationBooked",
+        "DetailType": detail_type,
         "Detail": json.dumps(detail, default=_json_default),
         "EventBusName": EVENT_BUS,
     }])
     if res.get("FailedEntryCount"):
         log("booking_event_failed", booking_id=booking["booking_id"], entries=res.get("Entries"), level="ERROR")
         emit_metric("BookingEventFailed")
+
+
+# ---------- scheduled bookings (booking form: date, time, meeting purpose) ----------
+class SlotTaken(Exception):
+    pass
+
+
+def lock_slot(advisor_id, date, time_, booking_id):
+    """Claim advisor+date+time so nobody else can book it. Raises SlotTaken if it is already claimed."""
+    try:
+        BOOKINGS.put_item(
+            Item={"booking_id": scheduling.slot_key(advisor_id, date, time_), "kind": "slot_lock",
+                  "for_booking": booking_id},
+            ConditionExpression="attribute_not_exists(booking_id)",
+        )
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") == "ConditionalCheckFailedException":
+            raise SlotTaken() from e
+        raise
+
+
+def taken_times(advisor_id, date):
+    keys = [{"booking_id": scheduling.slot_key(advisor_id, date, t)} for t in scheduling.TIMES]
+    res = DDB.batch_get_item(RequestItems={BOOKINGS.name: {"Keys": keys, "ProjectionExpression": "booking_id"}})
+    found = {i["booking_id"] for i in res.get("Responses", {}).get(BOOKINGS.name, [])}
+    return {t for t in scheduling.TIMES if scheduling.slot_key(advisor_id, date, t) in found}
+
+
+def create_scheduled_booking(session_id, form, adv):
+    booking_id = uuid.uuid4().hex[:10]
+    lock_slot(adv["advisor_id"], form.date, form.time, booking_id)
+    booking = {
+        "booking_id": booking_id,
+        "advisor_id": adv["advisor_id"],
+        "advisor_name": adv["name"],
+        "prospect_name": form.first_name.strip()[:40],
+        "meeting_date": form.date,
+        "meeting_time": form.time,
+        "time_slot": scheduling.slot_label(form.date, form.time),
+        "meeting_purpose": form.purpose.strip(),
+        "session_id": session_id,
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "crm_status": "pending",
+    }
+    BOOKINGS.put_item(Item=booking)
+    if adv.get("open_slots", 0) > 0:
+        adv["open_slots"] -= 1
+    log_event("booked", session_id)
+    emit_metric("BookingsCreated")
+    return booking
+
+
+def update_booking(req):
+    """Save changes to date, time or meeting purpose. Only the session that made the booking may change it."""
+    b = BOOKINGS.get_item(Key={"booking_id": req.booking_id}).get("Item")
+    if not b or b.get("session_id") != req.session_id or b.get("kind") == "slot_lock":
+        return respond(404, {"error": "not found", "detail": "We couldn't find that booking."})
+    if req.purpose is not None and matching.screen_pii(req.purpose):
+        return respond(400, {"error": "pii", "detail": matching.PII_REPLY.get(req.lang, matching.PII_REPLY["English"])})
+    date = req.date or b.get("meeting_date")
+    time_ = req.time or b.get("meeting_time")
+    moved = (date, time_) != (b.get("meeting_date"), b.get("meeting_time"))
+    if moved:
+        problem = scheduling.check_slot(date, time_)
+        if problem:
+            return respond(400, {"error": "invalid slot", "detail": problem})
+        try:
+            lock_slot(b["advisor_id"], date, time_, b["booking_id"])
+        except SlotTaken:
+            return respond(409, {"error": "slot taken", "detail": "That time was just taken. Pick another time."})
+        if b.get("meeting_date") and b.get("meeting_time"):
+            BOOKINGS.delete_item(Key={"booking_id": scheduling.slot_key(b["advisor_id"], b["meeting_date"], b["meeting_time"])})
+    purpose = b.get("meeting_purpose", "") if req.purpose is None else req.purpose.strip()
+    b = BOOKINGS.update_item(
+        Key={"booking_id": b["booking_id"]},
+        UpdateExpression="SET meeting_date = :d, meeting_time = :t, time_slot = :l, meeting_purpose = :p, "
+                         "updated_at = :u, crm_status = :s",
+        ExpressionAttributeValues={":d": date, ":t": time_, ":l": scheduling.slot_label(date, time_), ":p": purpose,
+                                   ":u": datetime.datetime.now(datetime.timezone.utc).isoformat(), ":s": "pending"},
+        ReturnValues="ALL_NEW",
+    )["Attributes"]
+    try:
+        publish_booking_event({k: v for k, v in b.items() if k != "briefing"}, b.get("briefing") or {},
+                              get_state(req.session_id)["slots"], detail_type="ClientConsultationUpdated")
+    except Exception as e:  # the change is saved; the alarm surfaces a failed CRM hand-off
+        log("booking_event_failed", booking_id=b["booking_id"], error=repr(e), level="ERROR")
+        emit_metric("BookingEventFailed")
+    emit_metric("BookingsUpdated")
+    return respond(200, {"booking": b})
 
 
 # ---------- agent tools ----------
@@ -366,6 +485,28 @@ def chat(body):
             if picked["advisor_id"] not in state["matched_ids"]:
                 save_state(session_id, matched_ids=state["matched_ids"] + [picked["advisor_id"]])
             message += f"\n\n(They picked {picked['name']} from the advisor directory: advisor_id {picked['advisor_id']}.)"
+    # Booking form: create the booking deterministically, then let the agent write the briefing and prep kit.
+    if req.booking:
+        form = req.booking
+        adv = next((a for a in advisors() if a["advisor_id"] == form.advisor_id), None)
+        if adv is None:  # SKILL-02: only advisors that exist in the inventory can be booked
+            return respond(404, {"error": "unknown advisor", "detail": "We couldn't find that advisor."})
+        problem = scheduling.check_slot(form.date, form.time)
+        if problem:
+            return respond(400, {"error": "invalid slot", "detail": problem})
+        if matching.screen_pii(form.purpose) or matching.screen_pii(form.first_name):
+            add_compliance_flag(session_id, "pii_blocked:booking_form")
+            emit_metric("PiiBlocked")
+            return respond(400, {"error": "pii", "detail": matching.PII_REPLY.get(req.lang, matching.PII_REPLY["English"])})
+        try:
+            booking = create_scheduled_booking(session_id, form, adv)
+        except SlotTaken:
+            return respond(409, {"error": "slot taken", "detail": "That time was just taken. Pick another time."})
+        UI["booking"] = booking
+        message += (f"\n\n(The meeting is already booked: booking_id {booking['booking_id']}, {booking['prospect_name']} "
+                    f"with {adv['name']} on {booking['time_slot']}. What they want to talk about: "
+                    f"{booking['meeting_purpose'] or 'not given'}. Do not call book_meeting. Call create_advisor_briefing "
+                    f"for this booking_id now, then give the First Meeting Ready kit.)")
     agent = Agent(
         model=MODEL,
         system_prompt=SYSTEM_PROMPT,
@@ -417,8 +558,21 @@ def lambda_handler(event, context):
                 counts[i["stage"]] = counts.get(i["stage"], 0) + 1
             return respond(200, {"day": day, "funnel": counts})
 
+        if path == "/availability":
+            req = AvailabilityRequest(**body)
+            problem = scheduling.check_slot(req.date, scheduling.TIMES[0])
+            if problem:
+                return respond(400, {"error": "invalid date", "detail": problem})
+            taken = taken_times(req.advisor_id, req.date)
+            return respond(200, {"date": req.date, "times": [
+                {"time": t, "label": scheduling.slot_label(req.date, t).split(" at ")[1], "available": t not in taken}
+                for t in scheduling.TIMES]})
+
+        if path == "/bookings/update":
+            return update_booking(BookingUpdate(**body))
+
         if path == "/bookings":
-            items = BOOKINGS.scan(Limit=100)["Items"]
+            items = [i for i in BOOKINGS.scan(Limit=200)["Items"] if i.get("kind") != "slot_lock"]
             items.sort(key=lambda b: b.get("created_at", ""), reverse=True)
             return respond(200, {"bookings": items[:25]})
 
