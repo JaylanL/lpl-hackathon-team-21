@@ -121,6 +121,7 @@ def normalize_meeting_type(meeting_type):
 
 def candidate_pool(advisors, language, meeting_type):
     lang = (language or "English").strip().capitalize()
+    lang = {"Chinese": "Mandarin", "中文": "Mandarin", "Español": "Spanish"}.get(lang, lang)
     mt = normalize_meeting_type(meeting_type)
     pool = [a for a in advisors if lang in a["languages"] and mt in a["meeting_types"] and a["open_slots"] > 0]
     if len(pool) < 3:  # relax filters rather than return nothing
