@@ -414,13 +414,25 @@ function renderMatches(list) {
 // ---------- booking: pick a date, a time and what the meeting is about ----------
 const BOOKING_KEY = "advisor-match.booking";
 function saveBookingLocally(b) {
+  const bookings = state.bookings || [];
+  const index = bookings.findIndex((item) => item.booking_id === b.booking_id);
+  if (index >= 0) bookings[index] = b;
+  else bookings.push(b);
+  state.bookings = bookings.filter((item) => item.status !== "cancelled");
   state.booking = b;
-  try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, booking: b })); } catch (_) {}
+  try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, bookings: state.bookings })); } catch (_) {}
+  renderBookings(state.bookings);
 }
 function restoreBooking() {
   try {
     const saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null");
-    if (saved?.booking?.booking_id) { state.sessionId = saved.sessionId; state.booking = saved.booking; renderBooking(saved.booking); }
+    const bookings = saved?.bookings || (saved?.booking ? [saved.booking] : []);
+    if (bookings.length) {
+      state.sessionId = saved.sessionId;
+      state.bookings = bookings.filter((item) => item.status !== "cancelled");
+      state.booking = state.bookings[0];
+      renderBookings(state.bookings);
+    }
   } catch (_) {}
 }
 
@@ -488,7 +500,7 @@ function openBookingForm(advisor, existing = null) {
   dateEl.onchange = loadTimes;
   loadTimes();
 
-  $("#bk-cancel").onclick = () => { if (state.booking) renderBooking(state.booking); else box.innerHTML = ""; };
+  $("#bk-cancel").onclick = () => { if (state.bookings?.length) renderBookings(state.bookings); else box.innerHTML = ""; };
   form.onsubmit = async (e) => {
     e.preventDefault();
     err.textContent = "";
@@ -522,55 +534,44 @@ function openBookingForm(advisor, existing = null) {
 }
 
 function renderBooking(b, notice = "") {
+  state.booking = b;
+  renderBookings([b], notice);
+}
+
+function renderBookings(bookings, notice = "") {
+  const box = $("#booking");
+  const active = bookings.filter((item) => item.status !== "cancelled");
+  if (!active.length) { box.innerHTML = ""; return; }
+  box.innerHTML = active.map((b) => {
   const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
-  const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
-  if (b.status === "cancelled") {
-    // A cancelled meeting simply disappears; screen readers still hear that it was cancelled.
-    $("#booking").innerHTML = "";
-    state.booking = null;
-    try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
-    $("#booking-announcement").textContent = `${t("bkCancelled")}. ${t("bkCancelledNote")}`;
-    return;
-  }
-  $("#booking").innerHTML = `
+  return `
     <div class="booking-card" role="status">
       <h3>✓ ${t("booked")}</h3>
       <div>${esc(b.prospect_name)} ${t("with")} <strong>${esc(b.advisor_name)}</strong></div>
       <div class="meta">${t("when")}: ${esc(when)}</div>
       ${b.meeting_purpose ? `<div class="meta">${esc(t("bkPurposeLabel"))}: ${esc(b.meeting_purpose)}</div>` : ""}
-      ${notice ? `<p class="saved-note">${esc(notice)}</p>` : ""}
+      ${notice && b.booking_id === bookings[0].booking_id ? `<p class="saved-note">${esc(notice)}</p>` : ""}
       <div class="bk-actions">
-        ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
-        <button type="button" class="secondary danger" id="bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
-      </div>
-      <div class="bk-confirm" id="bk-confirm" hidden>
-        <p>${esc(t("bkConfirmCancel")(b.advisor_name))}</p>
-        <div class="bk-actions">
-          <button type="button" class="primary danger" id="bk-yes-cancel">${esc(t("bkYesCancel"))}</button>
-          <button type="button" class="secondary" id="bk-keep">${esc(t("bkKeep"))}</button>
-        </div>
-        <p class="form-error" id="bk-cancel-error" role="alert"></p>
+        ${b.meeting_date ? `<button type="button" class="secondary bk-change" data-booking-id="${esc(b.booking_id)}">${esc(t("bkChange"))}</button>` : ""}
+        <button type="button" class="secondary danger bk-cancel-meeting" data-booking-id="${esc(b.booking_id)}">${esc(t("bkCancelMeeting"))}</button>
       </div>
       <p class="fineprint">${esc(t("bkChatTip"))}</p>
     </div>`;
-  $("#bk-change")?.addEventListener("click", () => openBookingForm(advisor, b));
-  const confirmBox = $("#bk-confirm");
-  $("#bk-cancel-meeting").onclick = () => { confirmBox.hidden = false; $("#bk-keep").focus(); };
-  $("#bk-keep").onclick = () => { confirmBox.hidden = true; $("#bk-cancel-meeting").focus(); };
-  $("#bk-yes-cancel").onclick = async () => {
-    const yes = $("#bk-yes-cancel");
-    yes.disabled = true;
+  }).join("");
+  box.querySelectorAll(".bk-change").forEach((button) => button.onclick = () => {
+    const booking = active.find((item) => item.booking_id === button.dataset.bookingId);
+    openBookingForm({ advisor_id: booking.advisor_id, name: booking.advisor_name }, booking);
+  });
+  box.querySelectorAll(".bk-cancel-meeting").forEach((button) => button.onclick = async () => {
+    button.disabled = true;
     try {
-      const { booking } = await post("/bookings/cancel", { booking_id: b.booking_id, session_id: state.sessionId });
-      saveBookingLocally(booking);
-      renderBooking(booking);
-      $("#msg").focus();  // the button that had focus is gone
-    } catch (e) {
-      $("#bk-cancel-error").textContent = e.message;
-      yes.disabled = false;
-    }
-  };
+      const { booking } = await post("/bookings/cancel", { booking_id: button.dataset.bookingId, session_id: state.sessionId });
+      state.bookings = state.bookings.filter((item) => item.booking_id !== booking.booking_id);
+      localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, bookings: state.bookings }));
+      renderBookings(state.bookings);
+    } catch (e) { button.disabled = false; }
+  });
 }
 
 // ---------- dictation ----------
