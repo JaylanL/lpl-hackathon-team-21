@@ -10,6 +10,7 @@ Routes (Lambda Function URL, JSON in / JSON out):
   POST /availability {advisor_id, date}                   -> {date, times: [{time, label, available}]}
   POST /bookings/update {booking_id, session_id, date?, time?, purpose?} -> {booking}
   POST /bookings/cancel {booking_id, session_id}          -> {booking}  (status "cancelled", time freed)
+  POST /bookings/get    {booking_id, session_id}          -> {booking}  (404 if gone or not this session's)
 /chat also accepts booking: {advisor_id, first_name, date, time, purpose} from the booking form.
   GET  /health                                            -> {ok}
 
@@ -817,6 +818,13 @@ def lambda_handler(event, context):
 
         if path == "/bookings/cancel":
             return cancel_booking_route(BookingCancel(**body))
+
+        if path == "/bookings/get":  # lets the web app check a booking it saved in the browser still exists
+            req = BookingCancel(**body)
+            try:
+                return respond(200, {"booking": own_booking(req.session_id, req.booking_id)})
+            except BookingError as e:
+                return respond(e.status, {"error": "booking", "detail": e.detail})
 
         if path == "/bookings":
             items = [i for i in BOOKINGS.scan(Limit=200)["Items"] if i.get("kind") != "slot_lock"]
