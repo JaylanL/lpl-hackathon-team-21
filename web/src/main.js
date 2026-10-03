@@ -50,7 +50,7 @@ const T = {
     bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
     bkCancelMeeting: "Cancel meeting", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
     bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
-    bkBookAgain: "Book a new time", bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
+    bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
     progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
     langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
     reason: {
@@ -97,7 +97,7 @@ const T = {
     bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
     bkCancelMeeting: "Cancelar reunión", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
     bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
-    bkBookAgain: "Reservar otro horario", bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
+    bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
     progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
     langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
     reason: {
@@ -129,7 +129,7 @@ const T = {
     bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
     bkCancelMeeting: "取消会面", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
     bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
-    bkBookAgain: "预约新时间", bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
+    bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
     progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
     langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
     reason: {
@@ -453,15 +453,11 @@ function renderBooking(b, notice = "") {
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
   const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
   if (b.status === "cancelled") {
-    $("#booking").innerHTML = `
-      <div class="booking-card cancelled" role="status">
-        <h3>${esc(t("bkCancelled"))}</h3>
-        <div>${esc(b.prospect_name)} ${t("with")} <strong>${esc(b.advisor_name)}</strong></div>
-        <div class="meta"><s>${esc(when)}</s></div>
-        <p class="meta">${esc(t("bkCancelledNote"))}</p>
-        <button type="button" class="secondary" id="bk-again">${esc(t("bkBookAgain"))}</button>
-      </div>`;
-    $("#bk-again").onclick = () => openBookingForm(advisor);
+    // A cancelled meeting simply disappears; screen readers still hear that it was cancelled.
+    $("#booking").innerHTML = "";
+    state.booking = null;
+    try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
+    $("#booking-announcement").textContent = `${t("bkCancelled")}. ${t("bkCancelledNote")}`;
     return;
   }
   $("#booking").innerHTML = `
@@ -496,6 +492,7 @@ function renderBooking(b, notice = "") {
       const { booking } = await post("/bookings/cancel", { booking_id: b.booking_id, session_id: state.sessionId });
       saveBookingLocally(booking);
       renderBooking(booking);
+      $("#msg").focus();  // the button that had focus is gone
     } catch (e) {
       $("#bk-cancel-error").textContent = e.message;
       yes.disabled = false;
