@@ -79,7 +79,9 @@ Tools:
   to meet and what day/time works.
 - The app has a booking form where they pick a date, a time and what the meeting is for. When they
   choose an advisor, tell them to use it. If they only chat, ask for their first name and a time,
-  then call book_meeting with the advisor_id exactly as search_advisors returned it.
+  then call book_meeting with the advisor_id exactly as search_advisors returned it. When you can
+  determine a specific date and time from their words, also turn them into a date (YYYY-MM-DD) and
+  a 24-hour time (HH:MM) using today's date (given in each message), and pass them as date and time.
 - If a message says the meeting is already booked, never call book_meeting again.
 - To change or cancel a meeting, call my_bookings first to get the booking_id.
   To move it, turn their words into a date (YYYY-MM-DD) and a 24-hour time (HH:MM) using today's date
@@ -543,13 +545,16 @@ def search_advisors(needs: str, language: str = "English", meeting_type: str = "
 
 
 @tool
-def book_meeting(advisor_id: str, prospect_name: str, time_slot: str) -> dict:
+def book_meeting(advisor_id: str, prospect_name: str, time_slot: str,
+                 date: str = "", time: str = "") -> dict:
     """Book a first meeting with the chosen advisor.
 
     Args:
         advisor_id: the advisor_id exactly as returned by search_advisors.
         prospect_name: the person's first name.
         time_slot: the day and time they chose, in plain words.
+        date: optional meeting date in YYYY-MM-DD format.
+        time: optional meeting time in 24-hour HH:MM format.
     """
     state = get_state(UI["session_id"])
     adv = next((a for a in advisors() if a["advisor_id"] == advisor_id), None)
@@ -572,6 +577,9 @@ def book_meeting(advisor_id: str, prospect_name: str, time_slot: str) -> dict:
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "crm_status": "pending",
     }
+    if date and time and scheduling.check_slot(date, time) is None:
+        booking["meeting_date"] = date
+        booking["meeting_time"] = time
     BOOKINGS.put_item(Item=booking)
     UI["booking"] = booking
     log_event("booked", UI["session_id"])
