@@ -210,7 +210,8 @@ Resources:
                 Action: s3:ListBucket
                 Resource: !GetAtt DataBucket.Arn
               - Effect: Allow
-                Action: [dynamodb:PutItem, dynamodb:GetItem, dynamodb:UpdateItem, dynamodb:Query, dynamodb:Scan]
+                Action: [dynamodb:PutItem, dynamodb:GetItem, dynamodb:UpdateItem, dynamodb:Query, dynamodb:Scan,
+                         dynamodb:DeleteItem, dynamodb:BatchGetItem]
                 Resource: [!GetAtt BookingsTable.Arn, !GetAtt FunnelTable.Arn, !GetAtt IntakeTable.Arn]
               - Effect: Allow
                 Action: [kms:Decrypt, kms:GenerateDataKey]
@@ -333,7 +334,7 @@ Resources:
       EventBusName: !Ref EventBus
       EventPattern:
         source: [advisor-match.booking]
-        detail-type: [ClientConsultationBooked]
+        detail-type: [ClientConsultationBooked, ClientConsultationUpdated]
       Targets:
         - Id: crm-queue
           Arn: !GetAtt CrmQueue.Arn
