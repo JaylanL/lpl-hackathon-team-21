@@ -231,7 +231,10 @@ function tagGlossaryTerms(html, text) {
       tip.className = "term-tip";
       tip.hidden = true;
       tip.textContent = GLOSSARY[match.term][state.lang] || GLOSSARY[match.term].en;
-      fragments.append(button, tip);
+      const wrap = document.createElement("span");
+      wrap.className = "term-wrap";
+      wrap.append(button, tip);
+      fragments.append(wrap);
       cursor = end;
       matchIndex++;
     }
