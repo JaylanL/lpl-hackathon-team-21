@@ -25,6 +25,7 @@ import time
 import uuid
 from decimal import Decimal
 from typing import Optional
+from urllib.parse import urlencode
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
@@ -94,6 +95,7 @@ Tools:
   "First Meeting Ready" kit: 3 terms explained simply, 4 questions to ask (always include
   "How are you paid?" and "What will this cost me?"), and a what-to-bring checklist.
   Mention they will receive a Form CRS (a short summary of how the advisor works and is paid).
+  If the booking result has a calendar_link, include it in the reply as a Markdown link.
 
 Rules:
 - Never recommend specific investments, funds, allocations, or tell anyone what to buy, sell or hold.
@@ -364,6 +366,19 @@ def taken_times(advisor_id, date):
     return {t for t in scheduling.TIMES if scheduling.slot_key(advisor_id, date, t) in found}
 
 
+def calendar_link(advisor_name, date, time, purpose):
+    """Build a Google Calendar add-event URL for a 30-minute advisor meeting."""
+    start = datetime.datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+    end = start + datetime.timedelta(minutes=30)
+    dates = f"{start:%Y%m%dT%H%M%S}/{end:%Y%m%dT%H%M%S}"
+    details = f"Meeting with {advisor_name}"
+    if purpose:
+        details += f". Purpose: {purpose}"
+    query = urlencode({"action": "TEMPLATE", "text": f"Meeting with {advisor_name}",
+                       "dates": dates, "details": details})
+    return f"https://calendar.google.com/calendar/render?{query}"
+
+
 def create_scheduled_booking(session_id, form, adv):
     booking_id = uuid.uuid4().hex[:10]
     lock_slot(adv["advisor_id"], form.date, form.time, booking_id)
@@ -381,6 +396,8 @@ def create_scheduled_booking(session_id, form, adv):
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "crm_status": "pending",
     }
+    booking["calendar_link"] = calendar_link(booking["advisor_name"], booking["meeting_date"],
+                                              booking["meeting_time"], booking["meeting_purpose"])
     BOOKINGS.put_item(Item=booking)
     if adv.get("open_slots", 0) > 0:
         adv["open_slots"] -= 1
@@ -625,6 +642,8 @@ def book_meeting(advisor_id: str, prospect_name: str, time_slot: str,
     if date and time and scheduling.check_slot(date, time) is None:
         booking["meeting_date"] = date
         booking["meeting_time"] = time
+        booking["calendar_link"] = calendar_link(booking["advisor_name"], date, time,
+                                                  booking.get("meeting_purpose", ""))
     BOOKINGS.put_item(Item=booking)
     UI["booking"] = booking
     log_event("booked", UI["session_id"])
