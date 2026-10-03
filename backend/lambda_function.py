@@ -169,10 +169,29 @@ def today():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
 
 
-def metric_dates(kind, start_date=None, end_date=None):
+def metric_dates(kind, year=None, month=None, quarter=None, start_date=None, end_date=None):
     current = datetime.datetime.now(datetime.timezone.utc).date()
     if kind == "daily":
         return current, current
+    if kind == "month":
+        selected_year = int(year or current.year)
+        selected_month = int(month or current.month)
+        start = datetime.date(selected_year, selected_month, 1)
+        next_month = selected_month % 12 + 1
+        next_year = selected_year + (selected_month == 12)
+        end = datetime.date(next_year, next_month, 1) - datetime.timedelta(days=1)
+        return start, min(end, current)
+    if kind == "quarter":
+        selected_year = int(year or current.year)
+        selected_quarter = int(quarter or ((current.month - 1) // 3) + 1)
+        start_month = (selected_quarter - 1) * 3 + 1
+        start = datetime.date(selected_year, start_month, 1)
+        end_month = start_month + 3
+        end = datetime.date(selected_year + (end_month > 12), (end_month - 1) % 12 + 1, 1) - datetime.timedelta(days=1)
+        return start, min(end, current)
+    if kind == "year":
+        selected_year = int(year or current.year)
+        return datetime.date(selected_year, 1, 1), min(datetime.date(selected_year, 12, 31), current)
     if kind == "quarterly":
         quarter_start_month = ((current.month - 1) // 3) * 3 + 1
         return current.replace(month=quarter_start_month, day=1), current
@@ -775,7 +794,7 @@ def lambda_handler(event, context):
 
         if path == "/metrics":
             kind = body.get("range") or "daily"
-            start, end = metric_dates(kind, body.get("start_date"), body.get("end_date"))
+            start, end = metric_dates(kind, body.get("year"), body.get("month"), body.get("quarter"), body.get("start_date"), body.get("end_date"))
             counts = {}
             if kind == "all":
                 page = FUNNEL.scan()
