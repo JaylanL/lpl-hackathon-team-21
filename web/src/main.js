@@ -64,6 +64,8 @@ const T = {
       focus: (v) => v, availability: (n) => `${n} open slot${n === 1 ? "" : "s"}`,
     },
     more: "More", less: "Less", moreAbout: (n) => `More about ${n}`,
+    showAll: "Show all 3 matches", yourChoice: "Your choice", meetingWord: { virtual: "virtual", "in-person": "in-person", or: "or" },
+    chosenFollowUp: (n, types) => `Great choice! **${n}** offers ${types} meetings. Pick a day and time in the booking form, and add what you'd like to talk about. You can also just tell me here, like "Thursday at 3pm".`,
     driversNote: "Ranked mostly by", drivers: { expertise: "fit with your goals", language: "language", meeting: "meeting type", availability: "availability" },
     feeLabel: "How they're paid", formCrs: "You'll get a Form CRS: a short summary of services, fees and conflicts of interest.",
   },
@@ -116,6 +118,8 @@ const T = {
       focus: (v) => v, availability: (n) => `${n} cita${n === 1 ? "" : "s"} libre${n === 1 ? "" : "s"}`,
     },
     more: "Más", less: "Menos", moreAbout: (n) => `Más sobre ${n}`,
+    showAll: "Ver las 3 opciones", yourChoice: "Su elección", meetingWord: { virtual: "virtuales", "in-person": "presenciales", or: "o" },
+    chosenFollowUp: (n, types) => `¡Buena elección! **${n}** ofrece reuniones ${types}. Elija una fecha y una hora en el formulario de reserva y añada de qué le gustaría hablar. También puede decírmelo aquí, por ejemplo "el jueves a las 3pm".`,
     driversNote: "Clasificado principalmente por", drivers: { expertise: "afinidad con sus metas", language: "idioma", meeting: "tipo de reunión", availability: "disponibilidad" },
     feeLabel: "Cómo cobra", formCrs: "Recibirá un Form CRS: un resumen breve de servicios, costos y conflictos de interés.",
   },
@@ -153,12 +157,15 @@ const T = {
       focus: (v) => v, availability: (n) => `${n} 个空档`,
     },
     more: "更多", less: "收起", moreAbout: (n) => `关于 ${n} 的更多信息`, choose: "选择这位顾问",
+    chooseMsg: (n) => `我想和 ${n} 见面。`,
+    showAll: "显示全部 3 位", yourChoice: "您的选择", meetingWord: { virtual: "线上", "in-person": "面对面", or: "或" },
+    chosenFollowUp: (n, types) => `好选择！**${n}** 提供${types}会面。请在预约表中选择日期和时间，并写下您想谈的内容。您也可以直接在这里告诉我，例如“周四下午3点”。`,
     driversNote: "主要排序依据", drivers: { expertise: "与您目标的契合度", language: "语言", meeting: "会议方式", availability: "可预约时间" },
     feeLabel: "收费方式", formCrs: "您将收到 Form CRS：一份关于服务、费用和利益冲突的简短说明。",
   },
 };
 const LANGUAGE_NAMES = { en: "English", es: "Spanish", zh: "Mandarin" };
-const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null, lastMatches: [] };
+const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null, lastMatches: [], bookings: [], booking: null, chosenAdvisor: null };
 const t = (k) => (T[state.lang] ?? T.en)[k] ?? T.en[k];
 
 function applyI18n() {
@@ -370,12 +377,13 @@ async function send(text, extra = {}) {
   $("#msg").value = "";
   const typing = addMsg("bot", t("thinking"), { cls: "typing" });
   try {
-    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...extra });
+    const chosen = state.chosenAdvisor ? { selected_advisor_id: state.chosenAdvisor.advisor_id } : {};
+    const res = await post("/chat", { message: text, session_id: state.sessionId, lang: LANGUAGE_NAMES[state.lang], ...chosen, ...extra });
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
-    if (res.matches) renderMatches((state.lastMatches = res.matches));
-    if (res.booking) { saveBookingLocally(res.booking); renderBooking(res.booking); }
+    if (res.matches) { state.chosenAdvisor = null; renderMatches((state.lastMatches = res.matches)); }
+    if (res.booking) saveBookingLocally(res.booking);
     if (state.autoread) speak(res.reply);
   } catch (e) {
     typing.remove();
@@ -437,10 +445,12 @@ function renderMatches(list) {
       more.setAttribute("aria-expanded", String(open));
       more.textContent = `${t(open ? "less" : "more")} ${open ? "▴" : "▾"}`;
     };
-    card.querySelector(".choose").onclick = () => openBookingForm(a);
+    card.dataset.advisorId = a.advisor_id;
+    card.querySelector(".choose").onclick = () => chooseMatch(a);
     wirePhotoFallbacks(card);
     box.appendChild(card);
   });
+  applyChoice();
   // On narrow screens the matches sit below the chat: bring all three into view together.
   const side = $(".side");
   if (side.getBoundingClientRect().top > innerHeight * 0.6) {
@@ -449,42 +459,86 @@ function renderMatches(list) {
   }
 }
 
+// Choosing one of the three matches: hide the other two (they stay in All advisors), and show the choice
+// plus one follow-up question in the chat. No AI call here; the next chat message says who was chosen.
+function chooseMatch(a) {
+  if (state.chosenAdvisor?.advisor_id !== a.advisor_id) {
+    state.chosenAdvisor = a;
+    const L = T[state.lang] ?? T.en;
+    const words = L.meetingWord ?? T.en.meetingWord;
+    const types = (a.meeting_types || []).map((m) => words[m] ?? m).join(` ${words.or} `);
+    addMsg("user", (L.chooseMsg ?? T.en.chooseMsg)(a.name));
+    addMsg("bot", (L.chosenFollowUp ?? T.en.chosenFollowUp)(a.name, types));
+    applyChoice();
+  }
+  openBookingForm(a);
+}
+
+function applyChoice() {
+  const box = $("#matches");
+  const chosenId = state.chosenAdvisor?.advisor_id;
+  const inList = chosenId && box.querySelector(`.match[data-advisor-id="${chosenId}"]`);
+  box.querySelectorAll(".match").forEach((card) => {
+    const isChosen = inList && card.dataset.advisorId === chosenId;
+    card.hidden = Boolean(inList) && !isChosen;
+    card.classList.toggle("chosen", Boolean(isChosen));
+    card.querySelector(".chosen-label")?.remove();
+    if (isChosen) card.querySelector(".card-title h3").insertAdjacentHTML("afterend", `<div class="chosen-label">${esc(t("yourChoice"))}</div>`);
+  });
+  box.querySelector(".show-all")?.remove();
+  if (inList) {
+    box.insertAdjacentHTML("beforeend", `<button type="button" class="secondary show-all">${esc(t("showAll"))}</button>`);
+    box.querySelector(".show-all").onclick = () => { state.chosenAdvisor = null; applyChoice(); box.querySelector(".match .choose")?.focus(); };
+  }
+}
+
 // ---------- booking: pick a date, a time and what the meeting is about ----------
 const BOOKING_KEY = "advisor-match.booking";
-function saveBookingLocally(b) {
-  const bookings = state.bookings || [];
-  const index = bookings.findIndex((item) => item.booking_id === b.booking_id);
-  if (index >= 0) bookings[index] = b;
-  else bookings.push(b);
-  state.bookings = bookings.filter((item) => item.status !== "cancelled");
-  state.booking = b;
-  try { localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, bookings: state.bookings })); } catch (_) {}
-  renderBookings(state.bookings);
+function persistBookings() {
+  try {
+    if (state.bookings.length) localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, bookings: state.bookings }));
+    else localStorage.removeItem(BOOKING_KEY);
+  } catch (_) {}
+}
+// Add or update a booking (a cancelled one is removed), remember it in the browser and redraw the cards.
+function saveBookingLocally(b, notice = "") {
+  const had = (state.bookings || []).some((x) => x.booking_id === b.booking_id);
+  state.bookings = (state.bookings || []).filter((x) => x.booking_id !== b.booking_id);
+  if (b.status !== "cancelled") state.bookings.push(b);
+  else if (had) $("#booking-announcement").textContent = `${t("bkCancelled")}. ${t("bkCancelledNote")}`;
+  state.booking = state.bookings.at(-1) || null;
+  persistBookings();
+  renderBookings(notice ? { id: b.booking_id, text: notice } : null);
 }
 function forgetBooking() {
+  state.bookings = [];
   state.booking = null;
   try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
 }
-// Show the booking saved in this browser only if the server still has it. Cleared, corrupt or blocked
-// storage, or a booking that was deleted or cancelled elsewhere, means there is no booking.
+// Show the bookings saved in this browser only if the server still has them. Cleared, corrupt or blocked
+// storage, or bookings that were deleted or cancelled elsewhere, mean there is nothing to show.
 async function restoreBooking() {
   let saved;
   try { saved = JSON.parse(localStorage.getItem(BOOKING_KEY) || "null"); } catch (_) { forgetBooking(); return; }
   if (!saved) return;
-  const { sessionId, booking } = saved;
-  if (!booking?.booking_id || !sessionId) { forgetBooking(); return; }
-  try {
-    const { booking: latest } = await post("/bookings/get", { booking_id: booking.booking_id, session_id: sessionId });
-    if (!latest || latest.status === "cancelled") { forgetBooking(); return; }
-    state.sessionId = sessionId;
-    saveBookingLocally(latest);
-    renderBooking(latest);
-  } catch (e) {
-    if (e.status) { forgetBooking(); return; }  // the server answered: the booking is gone or not ours
-    state.sessionId = sessionId;  // server unreachable: keep showing what we saved
-    state.booking = booking;
-    renderBooking(booking);
-  }
+  const sessionId = saved.sessionId;
+  const list = (Array.isArray(saved.bookings) ? saved.bookings : saved.booking ? [saved.booking] : []).filter((b) => b?.booking_id);
+  if (!sessionId || !list.length) { forgetBooking(); return; }
+  const checked = await Promise.all(list.map(async (b) => {
+    try {
+      const { booking } = await post("/bookings/get", { booking_id: b.booking_id, session_id: sessionId });
+      return booking && booking.status !== "cancelled" ? booking : null;
+    } catch (e) {
+      return e.status ? null : b;  // the server answered: gone or not ours. Unreachable: keep what we saved.
+    }
+  }));
+  const keep = checked.filter(Boolean);
+  if (!keep.length) { forgetBooking(); return; }
+  state.sessionId = sessionId;
+  state.bookings = keep;
+  state.booking = keep.at(-1);
+  persistBookings();
+  renderBookings();
 }
 
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -551,7 +605,7 @@ function openBookingForm(advisor, existing = null) {
   dateEl.onchange = loadTimes;
   loadTimes();
 
-  $("#bk-cancel").onclick = () => { if (state.bookings?.length) renderBookings(state.bookings); else box.innerHTML = ""; };
+  $("#bk-cancel").onclick = () => renderBookings();
   form.onsubmit = async (e) => {
     e.preventDefault();
     err.textContent = "";
@@ -566,8 +620,7 @@ function openBookingForm(advisor, existing = null) {
           booking_id: existing.booking_id, session_id: state.sessionId, date: dateEl.value, time: timeEl.value,
           purpose: purposeEl.value, lang: LANGUAGE_NAMES[state.lang],
         });
-        saveBookingLocally(booking);
-        renderBooking(booking, t("bkSaved"));
+        saveBookingLocally(booking, t("bkSaved"));
       } else {
         const when = `${friendlyDate(dateEl.value)}, ${timeEl.selectedOptions[0].textContent}`;
         await send((T[state.lang] ?? T.en).bkChatMsg?.(advisor.name, when) ?? T.en.bkChatMsg(advisor.name, when), {
@@ -584,77 +637,73 @@ function openBookingForm(advisor, existing = null) {
   box.scrollIntoView({ block: "nearest" });
 }
 
-function renderBooking(b, notice = "") {
-  state.booking = b;
-  renderBookings([b], notice);
+function calendarLink(b) {
+  if (!b.meeting_date) return "";
+  const [year, month, day] = b.meeting_date.split("-").map(Number);
+  const [hour, minute] = (b.meeting_time || "00:00").split(":").map(Number);
+  const start = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const end = new Date(start.getTime() + 30 * 60 * 1000);
+  const stamp = (date) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}00`;
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: `Meeting with ${b.advisor_name || "your advisor"}`,
+    dates: `${stamp(start)}/${stamp(end)}`,
+    details: b.meeting_purpose || "",
+    location: b.location || "",
+  });
+  return `https://calendar.google.com/calendar/render?${params}`;
 }
 
-function renderBookings(bookings, notice = "") {
-  const box = $("#booking");
-  const active = bookings.filter((item) => item.status !== "cancelled");
-  if (!active.length) { box.innerHTML = ""; return; }
-  box.innerHTML = active.map((b) => {
+function bookingCardHtml(b, notice) {
   const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
   const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
-  const calendarLink = b.meeting_date ? (() => {
-    const [year, month, day] = b.meeting_date.split("-").map(Number);
-    const [hour, minute] = (b.meeting_time || "00:00").split(":").map(Number);
-    const start = new Date(Date.UTC(year, month - 1, day, hour, minute));
-    const end = new Date(start.getTime() + 30 * 60 * 1000);
-    const stamp = (date) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}00`;
-    const params = new URLSearchParams({
-      action: "TEMPLATE",
-      text: `Meeting with ${b.advisor_name || "your advisor"}`,
-      dates: `${stamp(start)}/${stamp(end)}`,
-      details: b.meeting_purpose || "",
-      location: b.location || "",
-    });
-    return `https://calendar.google.com/calendar/render?${params}`;
-  })() : "";
-  const advisor = { advisor_id: b.advisor_id, name: b.advisor_name };
-  if (b.status === "cancelled") {
-    // A cancelled meeting simply disappears; screen readers still hear that it was cancelled.
-    $("#booking").innerHTML = "";
-    state.booking = null;
-    try { localStorage.removeItem(BOOKING_KEY); } catch (_) {}
-    $("#booking-announcement").textContent = `${t("bkCancelled")}. ${t("bkCancelledNote")}`;
-    return;
-  }
-  $("#booking").innerHTML = `
-    <div class="booking-card" role="status">
+  const cal = calendarLink(b);
+  return `
+    <div class="booking-card" role="status" data-booking-id="${esc(b.booking_id)}">
       <h3>✓ ${t("booked")}</h3>
       <div>${esc(b.prospect_name)} ${t("with")} <strong>${esc(b.advisor_name)}</strong></div>
       <div class="meta">${t("when")}: ${esc(when)}</div>
       ${b.meeting_purpose ? `<div class="meta">${esc(t("bkPurposeLabel"))}: ${esc(b.meeting_purpose)}</div>` : ""}
-      ${notice && b.booking_id === bookings[0].booking_id ? `<p class="saved-note">${esc(notice)}</p>` : ""}
+      ${notice ? `<p class="saved-note">${esc(notice)}</p>` : ""}
       <div class="bk-actions">
-        ${b.meeting_date ? `<button type="button" class="secondary" id="bk-change">${esc(t("bkChange"))}</button>` : ""}
-        ${calendarLink ? `<a class="secondary" href="${esc(calendarLink)}" target="_blank" rel="noopener">${esc(t("bkCalendar"))}</a>` : ""}
-        <button type="button" class="secondary danger" id="bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
+        ${b.meeting_date ? `<button type="button" class="secondary bk-change">${esc(t("bkChange"))}</button>` : ""}
+        ${cal ? `<a class="secondary" href="${esc(cal)}" target="_blank" rel="noopener">${esc(t("bkCalendar"))}</a>` : ""}
+        <button type="button" class="secondary danger bk-cancel-meeting">${esc(t("bkCancelMeeting"))}</button>
       </div>
-      <div class="bk-confirm" id="bk-confirm" hidden>
+      <div class="bk-confirm" hidden>
         <p>${esc(t("bkConfirmCancel")(b.advisor_name))}</p>
         <div class="bk-actions">
-          <button type="button" class="primary danger" id="bk-yes-cancel">${esc(t("bkYesCancel"))}</button>
-          <button type="button" class="secondary" id="bk-keep">${esc(t("bkKeep"))}</button>
+          <button type="button" class="primary danger bk-yes-cancel">${esc(t("bkYesCancel"))}</button>
+          <button type="button" class="secondary bk-keep">${esc(t("bkKeep"))}</button>
         </div>
-        <p class="form-error" id="bk-cancel-error" role="alert"></p>
+        <p class="form-error bk-cancel-error" role="alert"></p>
       </div>
       <p class="fineprint">${esc(t("bkChatTip"))}</p>
     </div>`;
-  }).join("");
-  box.querySelectorAll(".bk-change").forEach((button) => button.onclick = () => {
-    const booking = active.find((item) => item.booking_id === button.dataset.bookingId);
-    openBookingForm({ advisor_id: booking.advisor_id, name: booking.advisor_name }, booking);
-  });
-  box.querySelectorAll(".bk-cancel-meeting").forEach((button) => button.onclick = async () => {
-    button.disabled = true;
-    try {
-      const { booking } = await post("/bookings/cancel", { booking_id: button.dataset.bookingId, session_id: state.sessionId });
-      state.bookings = state.bookings.filter((item) => item.booking_id !== booking.booking_id);
-      localStorage.setItem(BOOKING_KEY, JSON.stringify({ sessionId: state.sessionId, bookings: state.bookings }));
-      renderBookings(state.bookings);
-    } catch (e) { button.disabled = false; }
+}
+
+// One card per active booking, each with its own Change / Calendar / Cancel controls.
+function renderBookings(notice = null) {
+  const box = $("#booking");
+  const list = state.bookings || [];
+  box.innerHTML = list.map((b) => bookingCardHtml(b, notice?.id === b.booking_id ? notice.text : "")).join("");
+  box.querySelectorAll(".booking-card").forEach((card) => {
+    const b = list.find((x) => x.booking_id === card.dataset.bookingId);
+    const q = (sel) => card.querySelector(sel);
+    q(".bk-change")?.addEventListener("click", () => openBookingForm({ advisor_id: b.advisor_id, name: b.advisor_name }, b));
+    q(".bk-cancel-meeting").onclick = () => { q(".bk-confirm").hidden = false; q(".bk-keep").focus(); };
+    q(".bk-keep").onclick = () => { q(".bk-confirm").hidden = true; q(".bk-cancel-meeting").focus(); };
+    q(".bk-yes-cancel").onclick = async () => {
+      q(".bk-yes-cancel").disabled = true;
+      try {
+        const { booking } = await post("/bookings/cancel", { booking_id: b.booking_id, session_id: state.sessionId });
+        saveBookingLocally(booking);
+        $("#msg").focus();  // the button that had focus is gone
+      } catch (e) {
+        q(".bk-cancel-error").textContent = e.message;
+        q(".bk-yes-cancel").disabled = false;
+      }
+    };
   });
 }
 
@@ -963,7 +1012,7 @@ async function init() {
     translateChatHistory();
     if ($("#matches .match")) renderMatches(state.lastMatches || []);
     renderDirectory();
-    if (state.booking && $("#booking .booking-card")) renderBooking(state.booking);
+    if (state.bookings?.length) renderBookings();
   }));
   document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
     const size = Number(button.dataset.size);
