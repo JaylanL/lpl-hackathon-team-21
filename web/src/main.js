@@ -1,4 +1,6 @@
 import "./style.css";
+import { T } from "./i18n.js";
+import { trData, trBio } from "./i18n-data.js";
 import { startDictation } from "./dictation.js";
 import { advisorPicture, wirePhotoFallbacks } from "./avatar.js";
 import { GLOSSARY, tagTerms } from "./glossary.js";
@@ -14,165 +16,35 @@ async function post(path, body = {}) {
 }
 
 // ---------- i18n ----------
-const T = {
-  en: {
-    tagline: "Find your advisor. Walk in ready.", tabInvestor: "Investor", tabAdvisor: "Advisor", tabDashboard: "Business dashboard",
-    languageLabel: "Language", textSize: "Text size", settings: "Settings", prefContrast: "High contrast", prefRead: "Read replies aloud",
-    howEyebrow: "Advisor Match", howTitle: "How it works",
-    howStep1Title: "1. Tell us your goals", howStep1Body: "Chat or speak in your own words: what you're saving for, what worries you, and how you like to meet. There are no wrong answers.",
-    howStep2Title: "2. Meet 3 matches", howStep2Body: "See three advisors who fit your goals, language and schedule, with a plain-language reason for each one.",
-    howStep3Title: "3. Walk in ready", howStep3Body: "Book a time and get a personal prep kit: key terms explained simply, questions to ask, and what to bring. Your advisor gets a briefing too, so you start with your goals, not paperwork.",
-    howFootnote: "Free to use. We help you prepare, not invest: your advisor gives the advice.",
-    investorTitle: "Let's find the right advisor for you",
-    investorLead: "Answer a few quick questions by typing or speaking. It takes about 3 minutes, and there are no wrong answers.",
-    starter1: "I'm new to investing and want help getting started", starter2: "I want to buy a house in 5 years but I have student loans",
-    msgLabel: "Your message", msgPh: "Type or tap the mic and speak…", send: "Send",
-    matchesTitle: "Your matches", matchesEmpty: "Your top 3 advisors will appear here, with the reasons each one fits you.",
-    advisorTitle: "New prospects", advisorLead: "Matched clients arrive with a briefing, so the first meeting starts with their goals, not paperwork. Designed to drop into ClientWorks.",
-    dashTitle: "Business impact dashboard", dashLead: "Track advisor matches, meeting momentum, and the value this experience could unlock.", refresh: "Refresh",
-    roiTitle: "Business impact calculator (illustrative)", roiNote: "Move the sliders to model scenarios. Assumptions are inputs, not forecasts.",
-    greeting: "Hi! I'm Advisor Match. I'll ask a few short questions and then show you advisors who fit you. To start: what's one money goal you have right now?",
-    readAloud: "Read aloud", thinking: "Thinking…", listening: "Listening… speak now. Tap the mic again to stop.",
-    micStart: "Start speaking", micStop: "Stop speaking", choose: "Choose this advisor",
-    booked: "You're booked!", with: "with", when: "When", chooseMsg: (n) => `I'd like to meet with ${n}.`,
-    matchesAnnounce: (n) => `${n} advisors matched`,
-    error: "Sorry, something went wrong. Please try again.",
-    tabDirectory: "All advisors", dirTitle: "All advisors", dirLead: "Browse every advisor, not just your top matches. Filter by language or meeting type, then ask to meet anyone who looks right.",
-    dirLanguage: "Language", dirMeeting: "Meeting type", dirAny: "Any", dirVirtual: "Virtual", dirInPerson: "In person", dirSearch: "Search", dirSearchPh: "e.g. home buyers, Miami",
-    dirCount: (n, total) => `Showing ${n} of ${total} advisors`, dirEmpty: "No advisors match these filters. Try removing one.",
-    openSlots: (n) => (n > 0 ? `Accepting new clients · ${n} open slot${n === 1 ? "" : "s"}` : "Not accepting new clients right now"), askToMeet: "Ask to meet",
-    bookTitle: (n) => `Book a first meeting with ${n}`, bkFirstName: "Your first name", bkDate: "Date", bkTime: "Time",
-    bkPickDate: "Pick a date first", bkNoTimes: "No open times that day. Try another date.", bkTaken: "taken",
-    bkPurpose: "What would you like to talk about?", bkPurposePh: "e.g. Saving for a first home while paying off student loans",
-    bkPurposeHint: "Optional. Please don't include phone numbers, emails or account numbers.",
-    bkSubmit: "Book meeting", bkSave: "Save changes", bkCancel: "Cancel", bkChange: "Change details",
-    bkSaved: "Changes saved.", bkWeekdays: "Weekdays only, advisor's local time.", bkPurposeLabel: "Meeting about",
-    bkChatMsg: (n, when) => `I'd like to meet with ${n} on ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "Cancel meeting", bkCalendar: "Add to Google Calendar", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
-    bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
-    bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
-    matchScore: (n) => `${n}% match`, whyFit: "Why this match",
-    langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
-    reason: {
-      language: (v, t) => `Speaks ${t.langNames[v] ?? v}, your preferred language`,
-      meeting: (v) => (v === "in-person" ? "Offers in-person meetings" : "Offers virtual meetings"),
-      focus: (v) => `Focuses on ${v}`,
-      availability: (n) => `${n} open first-meeting slot${n === 1 ? "" : "s"}`,
-    },
-    reasonShort: {
-      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "In person" : "Virtual"),
-      focus: (v) => v, availability: (n) => `${n} open slot${n === 1 ? "" : "s"}`,
-    },
-    more: "More", less: "Less", moreAbout: (n) => `More about ${n}`,
-    showAll: "Show all 3 matches", yourChoice: "Your choice", meetingWord: { virtual: "virtual", "in-person": "in-person", or: "or" },
-    chosenFollowUp: (n, types) => `Great choice! **${n}** offers ${types} meetings. Pick a day and time in the booking form, and add what you'd like to talk about. You can also just tell me here, like "Thursday at 3pm".`,
-    driversNote: "Ranked mostly by", drivers: { expertise: "fit with your goals", language: "language", meeting: "meeting type", availability: "availability" },
-    feeLabel: "How they're paid", formCrs: "You'll get a Form CRS: a short summary of services, fees and conflicts of interest.",
-  },
-  es: {
-    tagline: "Encuentre a su asesor. Llegue preparado.", tabInvestor: "Inversionista", tabAdvisor: "Asesor", tabDashboard: "Panel de negocio",
-    languageLabel: "Idioma", textSize: "Tamaño del texto", settings: "Ajustes", prefContrast: "Alto contraste", prefRead: "Leer respuestas en voz alta",
-    howEyebrow: "Advisor Match", howTitle: "Cómo funciona",
-    howStep1Title: "1. Cuéntenos sus metas", howStep1Body: "Escriba o hable con sus propias palabras: para qué está ahorrando, qué le preocupa y cómo prefiere reunirse. No hay respuestas incorrectas.",
-    howStep2Title: "2. Conozca 3 opciones", howStep2Body: "Vea tres asesores que coinciden con sus metas, idioma y horario, con una explicación sencilla de cada coincidencia.",
-    howStep3Title: "3. Llegue preparado", howStep3Body: "Reserve una cita y reciba una guía personal: conceptos clave explicados de forma sencilla, preguntas para hacer y qué llevar. Su asesor también recibe un resumen de sus metas.",
-    howFootnote: "Uso gratuito. Le ayudamos a prepararse, no a invertir: su asesor le da el consejo.",
-    investorTitle: "Encontremos al asesor ideal para usted",
-    investorLead: "Responda unas preguntas escribiendo o hablando. Toma unos 3 minutos y no hay respuestas incorrectas.",
-    starter1: "Soy nuevo en inversiones y quiero ayuda para empezar", starter2: "Quiero comprar una casa en 5 años pero tengo préstamos estudiantiles",
-    msgLabel: "Su mensaje", msgPh: "Escriba o toque el micrófono y hable…", send: "Enviar",
-    matchesTitle: "Sus asesores", matchesEmpty: "Aquí aparecerán sus 3 mejores asesores y por qué le convienen.",
-    advisorTitle: "Nuevos prospectos", advisorLead: "Los clientes llegan con un resumen, así la primera reunión empieza con sus metas.",
-    dashTitle: "Embudo de prospecto a cliente", dashLead: "Cada registro se mide: el impacto se ve.", refresh: "Actualizar",
-    roiTitle: "Calculadora de impacto (ilustrativa)", roiNote: "Mueva los controles para modelar escenarios.",
-    greeting: "¡Hola! Soy Advisor Match. Le haré unas preguntas cortas y luego le mostraré asesores ideales para usted. Para empezar: ¿cuál es una meta de dinero que tiene ahora?",
-    readAloud: "Leer en voz alta", thinking: "Pensando…", listening: "Escuchando… hable ahora. Toque el micrófono otra vez para parar.",
-    micStart: "Empezar a hablar", micStop: "Dejar de hablar", choose: "Elegir este asesor",
-    booked: "¡Cita reservada!", with: "con", when: "Cuándo", chooseMsg: (n) => `Me gustaría reunirme con ${n}.`,
-    matchesAnnounce: (n) => `${n} asesores encontrados`,
-    error: "Lo siento, algo salió mal. Intente de nuevo.",
-    tabDirectory: "Todos los asesores", dirTitle: "Todos los asesores", dirLead: "Vea a todos los asesores, no solo sus mejores coincidencias. Filtre por idioma o tipo de reunión y pida reunirse con quien le parezca bien.",
-    dirLanguage: "Idioma", dirMeeting: "Tipo de reunión", dirAny: "Cualquiera", dirVirtual: "Virtual", dirInPerson: "Presencial", dirSearch: "Buscar", dirSearchPh: "p. ej. compradores de casa, Miami",
-    dirCount: (n, total) => `Mostrando ${n} de ${total} asesores`, dirEmpty: "Ningún asesor coincide con estos filtros. Quite alguno.",
-    openSlots: (n) => (n > 0 ? `Acepta clientes nuevos · ${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}` : "No acepta clientes nuevos por ahora"), askToMeet: "Pedir reunión",
-    bookTitle: (n) => `Reserve una primera reunión con ${n}`, bkFirstName: "Su nombre", bkDate: "Fecha", bkTime: "Hora",
-    bkPickDate: "Primero elija una fecha", bkNoTimes: "No hay horarios libres ese día. Pruebe otra fecha.", bkTaken: "ocupado",
-    bkPurpose: "¿De qué le gustaría hablar?", bkPurposePh: "p. ej. Ahorrar para mi primera casa mientras pago préstamos estudiantiles",
-    bkPurposeHint: "Opcional. No incluya números de teléfono, correos ni números de cuenta.",
-    bkSubmit: "Reservar reunión", bkSave: "Guardar cambios", bkCancel: "Cancelar", bkChange: "Cambiar detalles",
-    bkSaved: "Cambios guardados.", bkWeekdays: "Solo días laborables, hora local del asesor.", bkPurposeLabel: "Tema",
-    bkChatMsg: (n, when) => `Me gustaría reunirme con ${n} el ${when}.`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "Cancelar reunión", bkCalendar: "Agregar a Google Calendar", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
-    bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
-    bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
-    matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
-    langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
-    reason: {
-      language: (v, t) => `Habla ${t.langNames[v] ?? v}, su idioma preferido`,
-      meeting: (v) => (v === "in-person" ? "Ofrece reuniones presenciales" : "Ofrece reuniones virtuales"),
-      focus: (v) => `Se especializa en: ${v}`,
-      availability: (n) => `${n} cita${n === 1 ? "" : "s"} disponible${n === 1 ? "" : "s"}`,
-    },
-    reasonShort: {
-      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "Presencial" : "Virtual"),
-      focus: (v) => v, availability: (n) => `${n} cita${n === 1 ? "" : "s"} libre${n === 1 ? "" : "s"}`,
-    },
-    more: "Más", less: "Menos", moreAbout: (n) => `Más sobre ${n}`,
-    showAll: "Ver las 3 opciones", yourChoice: "Su elección", meetingWord: { virtual: "virtuales", "in-person": "presenciales", or: "o" },
-    chosenFollowUp: (n, types) => `¡Buena elección! **${n}** ofrece reuniones ${types}. Elija una fecha y una hora en el formulario de reserva y añada de qué le gustaría hablar. También puede decírmelo aquí, por ejemplo "el jueves a las 3pm".`,
-    driversNote: "Clasificado principalmente por", drivers: { expertise: "afinidad con sus metas", language: "idioma", meeting: "tipo de reunión", availability: "disponibilidad" },
-    feeLabel: "Cómo cobra", formCrs: "Recibirá un Form CRS: un resumen breve de servicios, costos y conflictos de interés.",
-  },
-  zh: {
-    languageLabel: "语言", textSize: "文字大小", settings: "设置", prefContrast: "高对比度", prefRead: "朗读回复",
-    howEyebrow: "Advisor Match", howTitle: "使用方法",
-    howStep1Title: "1. 告诉我们您的目标", howStep1Body: "用自己的话输入或说出您正在为什​​么储蓄、担心什么，以及喜欢怎样见面。没有错误答案。",
-    howStep2Title: "2. 认识 3 位匹配顾问", howStep2Body: "查看符合您目标、语言和时间安排的三位顾问，并了解每位顾问适合您的简单原因。",
-    howStep3Title: "3. 做好会面准备", howStep3Body: "预约时间并获得个人准备清单：简单解释的关键术语、可以提出的问题以及需要携带的材料。您的顾问也会收到一份目标摘要。",
-    howFootnote: "免费使用。我们帮助您做好准备，而不是替您投资：您的顾问会提供建议。",
-    tabDirectory: "所有顾问", dirTitle: "所有顾问", dirLead: "浏览所有顾问，而不仅仅是您的最佳匹配。按语言或会议方式筛选，然后向合适的顾问申请会面。",
-    dirLanguage: "语言", dirMeeting: "会议方式", dirAny: "不限", dirVirtual: "线上", dirInPerson: "面对面", dirSearch: "搜索", dirSearchPh: "例如：首次购房、Miami",
-    dirCount: (n, total) => `显示 ${n} / ${total} 位顾问`, dirEmpty: "没有符合这些条件的顾问。请尝试移除一个筛选条件。",
-    openSlots: (n) => (n > 0 ? `接受新客户 · ${n} 个可预约时段` : "目前不接受新客户"), askToMeet: "申请会面",
-    bookTitle: (n) => `预约与 ${n} 的首次会面`, bkFirstName: "您的名字", bkDate: "日期", bkTime: "时间",
-    bkPickDate: "请先选择日期", bkNoTimes: "当天没有空闲时间，请选择其他日期。", bkTaken: "已约满",
-    bkPurpose: "您想谈些什么？", bkPurposePh: "例如：在偿还学生贷款的同时为首套房储蓄",
-    bkPurposeHint: "选填。请勿填写电话号码、电子邮件或账户号码。",
-    bkSubmit: "预约会面", bkSave: "保存更改", bkCancel: "取消", bkChange: "修改详情",
-    bkSaved: "更改已保存。", bkWeekdays: "仅限工作日，顾问当地时间。", bkPurposeLabel: "会面主题",
-    bkChatMsg: (n, when) => `我想在 ${when} 与 ${n} 会面。`, bkChars: (n, max) => `${n}/${max}`,
-    bkCancelMeeting: "取消会面", bkCalendar: "添加到 Google 日历", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
-    bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
-    bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
-    matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
-    langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
-    reason: {
-      language: (v, t) => `会说${t.langNames[v] ?? v}，您偏好的语言`,
-      meeting: (v) => (v === "in-person" ? "提供面对面会议" : "提供线上会议"),
-      focus: (v) => `专注于：${v}`,
-      availability: (n) => `${n} 个可预约时段`,
-    },
-    reasonShort: {
-      language: (v, t) => t.langNames[v] ?? v, meeting: (v) => (v === "in-person" ? "面对面" : "线上"),
-      focus: (v) => v, availability: (n) => `${n} 个空档`,
-    },
-    more: "更多", less: "收起", moreAbout: (n) => `关于 ${n} 的更多信息`, choose: "选择这位顾问",
-    chooseMsg: (n) => `我想和 ${n} 见面。`,
-    showAll: "显示全部 3 位", yourChoice: "您的选择", meetingWord: { virtual: "线上", "in-person": "面对面", or: "或" },
-    chosenFollowUp: (n, types) => `好选择！**${n}** 提供${types}会面。请在预约表中选择日期和时间，并写下您想谈的内容。您也可以直接在这里告诉我，例如“周四下午3点”。`,
-    driversNote: "主要排序依据", drivers: { expertise: "与您目标的契合度", language: "语言", meeting: "会议方式", availability: "可预约时间" },
-    feeLabel: "收费方式", formCrs: "您将收到 Form CRS：一份关于服务、费用和利益冲突的简短说明。",
-  },
-};
 const LANGUAGE_NAMES = { en: "English", es: "Spanish", zh: "Mandarin" };
 const state = { lang: "en", autoread: false, sessionId: null, busy: false, dictation: null, lastMatches: [], bookings: [], booking: null, chosenAdvisor: null };
 const t = (k) => (T[state.lang] ?? T.en)[k] ?? T.en[k];
+
+const LOCALES = { en: "en-US", es: "es-US", zh: "zh-CN" };
+const locale = () => LOCALES[state.lang] || "en-US";
+// Advisor data from the backend is English; show it in the chosen language (see i18n-data.js).
+const tr = (text) => trData(text, state.lang);
+const meetingWords = (types) => (types || []).map((m) => (T[state.lang] ?? T.en).reasonShort.meeting(m)).join(" / ");
+const langWord = (l) => ((T[state.lang] ?? T.en).langNames ?? T.en.langNames)[l] ?? l;
+// "15:00" -> "3:00 PM" / "3:00 p. m." / "下午3:00"
+function fmtTime(hhmm) {
+  if (!/^\d{2}:\d{2}$/.test(hhmm || "")) return hhmm || "";
+  const [h, m] = hhmm.split(":").map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString(locale(), { hour: "numeric", minute: "2-digit" });
+}
 
 function applyI18n() {
   document.documentElement.lang = state.lang;
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
   document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => { el.title = t(el.dataset.i18nTitle); });
   $("#mic").setAttribute("aria-label", state.dictation ? t("micStop") : t("micStart"));
+  $("#chat-collapse").textContent = document.body.classList.contains("chat-collapsed") ? t("chatShow") : t("chatHide");
+  document.querySelectorAll("#metrics-month option[value]:not([value=''])").forEach((o) => {
+    o.textContent = new Date(2000, Number(o.value) - 1, 1).toLocaleDateString(locale(), { month: "long" });
+  });
+  document.querySelectorAll("#metrics-quarter option").forEach((o) => { o.textContent = t("quarterN")(o.value); });
 }
 
 // ---------- tiny safe markdown ----------
@@ -259,6 +131,7 @@ function addMsg(role, text, opts = {}) {
   div.className = `msg ${role}${opts.cls ? " " + opts.cls : ""}`;
   div.dataset.sourceText = text;
   div.dataset.messageRole = role;
+  if (opts.i18n) div.dataset.i18nMsg = JSON.stringify(opts.i18n);
   const body = document.createElement("div");
   body.className = "msg-body";
   body.innerHTML = role === "bot" && !opts.cls ? tagGlossaryTerms(md(text), text) : `<p>${esc(text)}</p>`;
@@ -307,12 +180,25 @@ function createSpeakButton(getText) {
 
 function setSpeakButtonState(button, active) {
   button.textContent = active ? "⏹ " + t("readAloud") : "🔊 " + t("readAloud");
-  button.setAttribute("aria-label", active ? "Stop " + t("readAloud") : t("readAloud"));
+  button.setAttribute("aria-label", active ? t("readAloudStop") : t("readAloud"));
   button.setAttribute("aria-pressed", String(active));
 }
 
+// Messages the app wrote itself (greeting, "you chose ..." follow-ups) come from the dictionary.
+function localMessage({ key, args = [] }) {
+  const L = T[state.lang] ?? T.en;
+  if (key === "chosenFollowUp") {
+    const [name, types] = args;
+    const words = L.meetingWord ?? T.en.meetingWord;
+    return (L.chosenFollowUp ?? T.en.chosenFollowUp)(name, (types || []).map((m) => words[m] ?? m).join(` ${words.or} `));
+  }
+  const v = L[key] ?? T.en[key];
+  return typeof v === "function" ? v(...args) : v;
+}
+
 async function translateChatHistory() {
-  const messages = [...chat().querySelectorAll(".msg[data-source-text]")].filter((div) => !div.classList.contains("typing") && !div.classList.contains("error"));
+  chat().querySelectorAll(".msg[data-i18n-msg]").forEach((div) => renderMessageText(div, localMessage(JSON.parse(div.dataset.i18nMsg))));
+  const messages = [...chat().querySelectorAll(".msg[data-source-text]:not([data-i18n-msg])")].filter((div) => !div.classList.contains("typing") && !div.classList.contains("error"));
   await Promise.all(messages.map(async (div) => {
     try {
       const result = await post("/translate", { text: div.dataset.sourceText, lang: state.lang });
@@ -361,7 +247,7 @@ async function speak(text, button) {
       if (button) setSpeakButtonState(button, false);
     }
     console.warn("[speak]", e);
-    $("#live-hint").textContent = `Read aloud unavailable: ${e.message}`;
+    $("#live-hint").textContent = t("readAloudUnavailable")(e.message);
   }
 }
 
@@ -400,7 +286,7 @@ async function send(text, extra = {}) {
 function reasonText(r, kind = "reason") {
   const L = T[state.lang] ?? T.en;
   const fn = (L[kind] ?? T.en[kind])[r.code];
-  return fn ? fn(r.value, L.langNames ? L : T.en) : "";
+  return fn ? fn(r.code === "focus" ? tr(r.value) : r.value, L.langNames ? L : T.en) : "";
 }
 
 // Compact cards so all three matches fit on one screen; the full details sit behind "More".
@@ -416,12 +302,12 @@ function renderMatches(list) {
     const short = (a.reasons || []).map((r) => reasonText(r, "reasonShort")).filter(Boolean).join(" · ");
     const drivers = (a.drivers || []).map((d) => t("drivers")[d] ?? d).join(", ");
     const d = a.disclosure;
-    const fee = d ? `${d.fee_model} · ${d.platform}` : "";
+    const fee = d ? `${tr(d.fee_model)} · ${tr(d.platform)}` : "";
     const id = `match-more-${++moreId}`;
     card.innerHTML = `
-      <div class="card-head">${advisorPicture(a, esc)}
+      <div class="card-head">${advisorPicture(a, esc, { portrait: t("portraitOf")(a.name), photo: t("photoOf")(a.name) })}
         <div class="card-title">
-          <h3><span class="name" title="${esc(a.name)}">${esc(a.name)}</span>${a.fit ? `<span class="fit">${esc(a.fit)}</span>` : ""}</h3>
+          <h3><span class="name" title="${esc(a.name)}">${esc(a.name)}</span>${a.fit ? `<span class="fit">${esc(tr(a.fit))}</span>` : ""}</h3>
           <div class="meta one-line">${a.match_score != null ? `<span class="score">${esc(t("matchScore")(a.match_score))}</span> · ` : ""}${esc(a.city)}</div>
         </div>
       </div>
@@ -432,10 +318,10 @@ function renderMatches(list) {
         <button class="secondary choose" type="button">${esc(t("choose"))}</button>
       </div>
       <div class="match-more" id="${id}" hidden>
-        <div class="meta">${esc(a.meeting_types.join(" / "))}</div>
-        <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
+        <div class="meta">${esc(meetingWords(a.meeting_types))}</div>
+        <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(langWord(l))}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(tr(f))}</span>`).join("")}</div>
         ${reasons.length ? `<div class="why"><strong>${esc(t("whyFit"))}</strong><ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>${drivers ? `<div class="fineprint">${esc(t("driversNote"))}: ${esc(drivers)}</div>` : ""}</div>` : ""}
-        <p class="meta">${esc(a.bio)}</p>
+        <p class="meta">${esc(trBio(a.bio, state.lang))}</p>
         ${d ? `<div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(fee)}<div class="fineprint">${esc(t("formCrs"))}</div></div>` : ""}
       </div>`;
     const more = card.querySelector(".more"), panel = card.querySelector(".match-more");
@@ -467,8 +353,8 @@ function chooseMatch(a) {
     const L = T[state.lang] ?? T.en;
     const words = L.meetingWord ?? T.en.meetingWord;
     const types = (a.meeting_types || []).map((m) => words[m] ?? m).join(` ${words.or} `);
-    addMsg("user", (L.chooseMsg ?? T.en.chooseMsg)(a.name));
-    addMsg("bot", (L.chosenFollowUp ?? T.en.chosenFollowUp)(a.name, types));
+    addMsg("user", (L.chooseMsg ?? T.en.chooseMsg)(a.name), { i18n: { key: "chooseMsg", args: [a.name] } });
+    addMsg("bot", (L.chosenFollowUp ?? T.en.chosenFollowUp)(a.name, types), { i18n: { key: "chosenFollowUp", args: [a.name, a.meeting_types] } });
     applyChoice();
   }
   openBookingForm(a);
@@ -547,19 +433,24 @@ function nextWeekday(from) {
   do d.setDate(d.getDate() + 1); while (d.getDay() === 0 || d.getDay() === 6);
   return d;
 }
+function bookingFormValues() {
+  return { first_name: $("#bk-name")?.value || "", date: $("#bk-date").value, time: $("#bk-time").value,
+           purpose: $("#bk-purpose").value };
+}
 function friendlyDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
-  const loc = { en: "en-US", es: "es-US", zh: "zh-CN" }[state.lang] || "en-US";
-  return new Date(y, m - 1, d).toLocaleDateString(loc, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  return new Date(y, m - 1, d).toLocaleDateString(locale(), { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
-// advisor: {advisor_id, name}; existing: a booking to edit (date, time and purpose prefilled)
-function openBookingForm(advisor, existing = null) {
+// advisor: {advisor_id, name}; existing: a booking to edit (date, time and purpose prefilled);
+// keep: values typed so far ({first_name, date, time, purpose}), restored when the form is redrawn in another language
+function openBookingForm(advisor, existing = null, keep = null) {
+  state.bookingForm = { advisor, existing };
   const box = $("#booking");
   const today = new Date();
   const min = isoDay(nextWeekday(today));
   const max = isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 60));
-  const purpose = existing?.meeting_purpose || "";
+  const purpose = keep ? keep.purpose : existing?.meeting_purpose || "";
   box.innerHTML = `
     <form class="booking-form" id="booking-form" novalidate>
       <h3>${esc(t("bookTitle")(advisor.name))}</h3>
@@ -567,7 +458,7 @@ function openBookingForm(advisor, existing = null) {
         <input id="bk-name" name="first_name" required maxlength="40" autocomplete="given-name" /></label>`}
       <div class="bk-row">
         <label for="bk-date">${esc(t("bkDate"))}
-          <input id="bk-date" type="date" required min="${min}" max="${max}" value="${esc(existing?.meeting_date || min)}" /></label>
+          <input id="bk-date" type="date" required min="${min}" max="${max}" value="${esc(keep?.date || existing?.meeting_date || min)}" /></label>
         <label for="bk-time">${esc(t("bkTime"))}
           <select id="bk-time" required><option value="">${esc(t("bkPickDate"))}</option></select></label>
       </div>
@@ -585,23 +476,27 @@ function openBookingForm(advisor, existing = null) {
   const count = () => ($("#bk-count").textContent = t("bkChars")(purposeEl.value.length, 500));
   purposeEl.oninput = () => { count(); err.textContent = ""; };
   count();
+  if (keep && $("#bk-name")) $("#bk-name").value = keep.first_name;
 
   async function loadTimes() {
     err.textContent = "";
     timeEl.innerHTML = `<option value="">${esc(t("thinking"))}</option>`;
     try {
       const { times } = await post("/availability", { advisor_id: advisor.advisor_id, date: dateEl.value });
-      const keep = existing && dateEl.value === existing.meeting_date ? existing.meeting_time : null;
-      const open = (s) => s.available || s.time === keep;
+      const held = existing && dateEl.value === existing.meeting_date ? existing.meeting_time : null;
+      const open = (s) => s.available || s.time === held;
       if (!times.some(open)) { timeEl.innerHTML = `<option value="">${esc(t("bkNoTimes"))}</option>`; return; }
       timeEl.innerHTML = times.map((s) =>
-        `<option value="${s.time}" ${open(s) ? "" : "disabled"}>${esc(s.label)}${open(s) ? "" : ` (${esc(t("bkTaken"))})`}</option>`).join("");
-      timeEl.value = keep || times.find(open).time;
+        `<option value="${s.time}" ${open(s) ? "" : "disabled"}>${esc(fmtTime(s.time))}${open(s) ? "" : ` (${esc(t("bkTaken"))})`}</option>`).join("");
+      const typed = times.find((s) => s.time === wanted && open(s));
+      wanted = null;
+      timeEl.value = typed ? typed.time : held || times.find(open).time;
     } catch (e) {
       timeEl.innerHTML = `<option value="">${esc(t("bkPickDate"))}</option>`;
       err.textContent = e.message;
     }
   }
+  let wanted = keep?.time || null;
   dateEl.onchange = loadTimes;
   loadTimes();
 
@@ -646,7 +541,7 @@ function calendarLink(b) {
   const stamp = (date) => `${date.getUTCFullYear()}${String(date.getUTCMonth() + 1).padStart(2, "0")}${String(date.getUTCDate()).padStart(2, "0")}T${String(date.getUTCHours()).padStart(2, "0")}${String(date.getUTCMinutes()).padStart(2, "0")}00`;
   const params = new URLSearchParams({
     action: "TEMPLATE",
-    text: `Meeting with ${b.advisor_name || "your advisor"}`,
+    text: t("calendarText")(b.advisor_name || t("yourAdvisor")),
     dates: `${stamp(start)}/${stamp(end)}`,
     details: b.meeting_purpose || "",
     location: b.location || "",
@@ -655,8 +550,7 @@ function calendarLink(b) {
 }
 
 function bookingCardHtml(b, notice) {
-  const time = b.time_slot?.split(" at ")[1] || b.meeting_time;
-  const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${time}` : b.time_slot;
+  const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${fmtTime(b.meeting_time)}` : b.time_slot;
   const cal = calendarLink(b);
   return `
     <div class="booking-card" role="status" data-booking-id="${esc(b.booking_id)}">
@@ -756,12 +650,12 @@ function renderDirectory() {
     const card = document.createElement("article");
     card.className = "match dir-card";
     card.innerHTML = `
-      <div class="card-head">${advisorPicture(a, esc)}<h3>${esc(a.name)}</h3></div>
-      <div class="meta">${esc(a.city)} · ${esc(a.meeting_types.join(" / "))}</div>
+      <div class="card-head">${advisorPicture(a, esc, { portrait: t("portraitOf")(a.name), photo: t("photoOf")(a.name) })}<h3>${esc(a.name)}</h3></div>
+      <div class="meta">${esc(a.city)} · ${esc(meetingWords(a.meeting_types))}</div>
       <div class="slots ${a.open_slots > 0 ? "open" : ""}">${esc(t("openSlots")(a.open_slots))}</div>
-      <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(l)}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(f)}</span>`).join("")}</div>
-      <p class="meta">${esc(a.bio)}</p>
-      <div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(d.fee_model || "")} · ${esc(d.platform || "")}</div>
+      <div class="tags">${a.languages.map((l) => `<span class="tag">${esc(langWord(l))}</span>`).join("")}${a.focus.map((f) => `<span class="tag">${esc(tr(f))}</span>`).join("")}</div>
+      <p class="meta">${esc(trBio(a.bio, state.lang))}</p>
+      <div class="disclosure"><strong>${esc(t("feeLabel"))}:</strong> ${esc(tr(d.fee_model || ""))} · ${esc(tr(d.platform || ""))}</div>
       <button class="secondary choose" type="button" ${a.open_slots > 0 ? "" : "disabled"}>${esc(t("askToMeet"))}</button>`;
     card.querySelector(".choose").onclick = () => {
       showView("investor");
@@ -773,36 +667,66 @@ function renderDirectory() {
 }
 
 // ---------- advisor view ----------
+// Briefings are written by the AI in English; translate them once per language and remember the result.
+const translations = new Map();
+function translateText(text) {
+  if (!text || state.lang === "en") return Promise.resolve(text);
+  const key = `${state.lang}\u0000${text}`;
+  if (!translations.has(key)) {
+    translations.set(key, post("/translate", { text, lang: state.lang }).then((r) => r.text || text).catch(() => { translations.delete(key); return text; }));
+  }
+  return translations.get(key);
+}
+function translateMarked(root) {
+  root.querySelectorAll("[data-tr]").forEach(async (el) => {
+    const lang = state.lang;
+    const out = await translateText(el.dataset.tr);
+    if (lang === state.lang && document.body.contains(el)) el.textContent = out;
+  });
+}
+
+let lastBookings = null;
 async function loadBookings() {
   const box = $("#bookings");
   box.innerHTML = `<p class="muted">${t("thinking")}</p>`;
   try {
     const { bookings } = await post("/bookings");
-    if (!bookings.length) { box.innerHTML = `<p class="muted">No prospects yet. Complete a booking in the Investor view.</p>`; return; }
-    box.innerHTML = "";
-    bookings.forEach((b) => {
-      const br = b.briefing || {};
-      const el = document.createElement("article");
-      el.className = "bk";
-      el.innerHTML = `
-        <h3>${esc(b.prospect_name || "New prospect")} → ${esc(b.advisor_name || b.advisor_id)}</h3>
-        <div class="meta">First meeting: ${b.status === "cancelled" ? `<s>${esc(b.time_slot || "")}</s> <span class="crm cancelled-pill">Cancelled</span>` : esc(b.time_slot || "")}
-          ${b.crm_status ? `<span class="crm ${b.crm_status === "synced" ? "ok" : ""}">${b.crm_status === "synced" ? "✓ Synced to CRM" : "CRM sync pending"}</span>` : ""}</div>
-        <dl>
-          ${b.meeting_purpose ? `<dt>Meeting about</dt><dd>${esc(b.meeting_purpose)}</dd>` : ""}
-          <dt>Goals</dt><dd>${esc(br.goals || "—")}</dd>
-          <dt>Worries</dt><dd>${esc(br.worries || "—")}</dd>
-          <dt>Explain simply</dt><dd>${esc(br.topics_to_explain || "—")}</dd>
-          <dt>How they prefer to communicate</dt><dd>${esc(br.communication_preferences || "—")}</dd>
-        </dl>`;
-      box.appendChild(el);
-    });
+    lastBookings = bookings;
+    renderAdvisorBookings();
   } catch (e) { box.innerHTML = `<p class="msg error">${esc(e.message)}</p>`; }
+}
+function renderAdvisorBookings() {
+  const box = $("#bookings");
+  const bookings = lastBookings || [];
+  if (!bookings.length) { box.innerHTML = `<p class="muted">${esc(t("noProspects"))}</p>`; return; }
+  box.innerHTML = "";
+  const field = (text) => (text ? `<span data-tr="${esc(text)}">${esc(text)}</span>` : "—");
+  bookings.forEach((b) => {
+    const br = b.briefing || {};
+    const when = b.meeting_date ? `${friendlyDate(b.meeting_date)} · ${fmtTime(b.meeting_time)}` : field(b.time_slot || "");
+    const el = document.createElement("article");
+    el.className = "bk";
+    el.innerHTML = `
+      <h3>${esc(b.prospect_name || t("newProspect"))} → ${esc(b.advisor_name || b.advisor_id)}</h3>
+      <div class="meta">${esc(t("firstMeeting"))}: ${b.status === "cancelled" ? `<s>${when}</s> <span class="crm cancelled-pill">${esc(t("cancelledPill"))}</span>` : when}
+        ${b.crm_status ? `<span class="crm ${b.crm_status === "synced" ? "ok" : ""}">${esc(b.crm_status === "synced" ? t("crmSynced") : t("crmPending"))}</span>` : ""}</div>
+      <dl>
+        ${b.meeting_purpose ? `<dt>${esc(t("bkPurposeLabel"))}</dt><dd>${field(b.meeting_purpose)}</dd>` : ""}
+        <dt>${esc(t("briefGoals"))}</dt><dd>${field(br.goals)}</dd>
+        <dt>${esc(t("briefWorries"))}</dt><dd>${field(br.worries)}</dd>
+        <dt>${esc(t("briefExplain"))}</dt><dd>${field(br.topics_to_explain)}</dd>
+        <dt>${esc(t("briefComms"))}</dt><dd>${field(br.communication_preferences)}</dd>
+      </dl>`;
+    box.appendChild(el);
+  });
+  translateMarked(box);
 }
 
 // ---------- dashboard ----------
-const STAGES = [["intake_started", "Intake started"], ["matched", "Matched to advisors"], ["booked", "First meeting booked"], ["briefing_sent", "Advisor briefed"]];
+const STAGE_KEYS = ["intake_started", "matched", "booked", "briefing_sent"];
+const stageLabel = (k) => t("stages")[k];
 let currentMetricsReport = null;
+let lastRecommendations = null;
 function setupMetricDateSelectors() {
   const year = new Date().getUTCFullYear();
   $("#metrics-year").innerHTML = Array.from({ length: 6 }, (_, index) => year - index)
@@ -833,13 +757,23 @@ async function loadMetrics() {
       request.start_date = $("#metrics-start").value;
       request.end_date = $("#metrics-end").value;
       if (!request.start_date || !request.end_date) {
-        box.innerHTML = `<p class="muted">Choose both dates to view a custom report.</p>`;
+        box.innerHTML = `<p class="muted">${esc(t("chooseBothDates"))}</p>`;
         return;
       }
     }
     const report = await post("/metrics", request);
-    const { funnel, start_date, end_date } = report;
     currentMetricsReport = report;
+    renderMetrics();
+    loadInsights(report);
+  } catch (e) { box.innerHTML = `<p class="msg error">${esc(e.message)}</p>`; }
+}
+
+function renderMetrics() {
+  const box = $("#funnel");
+  const report = currentMetricsReport;
+  if (!report) return;
+  {
+    const { funnel, start_date, end_date } = report;
     const matched = funnel.matched || 0;
     const booked = funnel.booked || 0;
     const briefed = funnel.briefing_sent || 0;
@@ -847,27 +781,28 @@ async function loadMetrics() {
     const aum = +$("#r-aum").value;
     const fee = +$("#r-fee").value;
     const opportunity = booked * aum * (fee / 100);
-    $("#metrics-day").textContent = `${start_date === end_date ? start_date : `${start_date} to ${end_date}`} · UTC`;
+    $("#metrics-day").textContent = `${start_date === end_date ? start_date : t("periodShort")(start_date, end_date)} · UTC`;
     $("#kpi-matched").textContent = matched.toLocaleString();
     $("#kpi-conversion").textContent = `${conversion}%`;
     $("#kpi-briefed").textContent = briefed.toLocaleString();
     $("#kpi-opportunity").textContent = usd(opportunity);
-    renderRecommendations({ matched, booked, briefed, conversion });
-    loadInsights(report);
-    const max = Math.max(1, ...STAGES.map(([k]) => funnel[k] || 0));
-    box.innerHTML = `<div class="meta">${start_date === end_date ? `Daily report · ${esc(start_date)}` : `Report period · ${esc(start_date)} to ${esc(end_date)}`}</div>`;
-    STAGES.forEach(([k, label], i) => {
+    if (!lastRecommendations) renderRecommendations({ matched, booked, briefed, conversion });
+    else renderRecommendations(lastRecommendations);
+    const max = Math.max(1, ...STAGE_KEYS.map((k) => funnel[k] || 0));
+    box.innerHTML = `<div class="meta">${esc(start_date === end_date ? t("periodDay")(start_date) : t("periodRange")(start_date, end_date))}</div>`;
+    STAGE_KEYS.forEach((k, i) => {
+      const label = esc(stageLabel(k));
       const v = funnel[k] || 0;
       const row = document.createElement("div");
       row.className = "frow";
       row.innerHTML = `<div>${label}</div><div class="bar" style="width:${(v / max) * 100}%" role="img" aria-label="${label}: ${v}"></div><div class="val">${v}</div>`;
       box.appendChild(row);
       if (i > 0) {
-        const prev = funnel[STAGES[i - 1][0]] || 0;
+        const prev = funnel[STAGE_KEYS[i - 1]] || 0;
         if (prev) {
           const d = document.createElement("div");
           d.className = "drop";
-          d.textContent = `${Math.round((v / prev) * 100)}% carried on from the previous step`;
+          d.textContent = t("carriedOn")(Math.round((v / prev) * 100));
           box.appendChild(d);
         }
       }
@@ -877,10 +812,9 @@ async function loadMetrics() {
     const c = document.createElement("div");
     c.className = "meta compliance";
 
-    c.textContent = `Compliance in period: ${pii} message${pii === 1 ? "" : "s"} with personal identifiers blocked · ${gr} guardrail intervention${gr === 1 ? "" : "s"}`;
+    c.textContent = t("complianceLine")(pii, gr);
     box.appendChild(c);
-
-  } catch (e) { box.innerHTML = `<p class="msg error">${esc(e.message)}</p>`; }
+  }
 }
 
 async function loadInsights(report) {
@@ -890,7 +824,8 @@ async function loadInsights(report) {
       start_date: report.start_date,
       end_date: report.end_date,
     });
-    renderRecommendations(result.recommendations || []);
+    lastRecommendations = result.recommendations || [];
+    renderRecommendations(lastRecommendations);
   } catch (e) {
     console.warn("[insights] falling back to local recommendations", e);
   }
@@ -905,13 +840,15 @@ function exportMetricsCsv() {
   const conversion = matched ? Math.round((booked / matched) * 100) : 0;
   const aum = +$("#r-aum").value;
   const fee = +$("#r-fee").value;
+  const notes = t("csvNotes");
+  const period = $("#metrics-range").selectedOptions[0]?.textContent || range;
   const rows = [
-    ["Metric", "Value", "Period", "Start date", "End date", "Notes"],
-    ["Advisor matches delivered", matched, range, start_date, end_date, "Observed ranked matches"],
-    ["Match-to-meeting rate", `${conversion}%`, range, start_date, end_date, "Booked divided by matches"],
-    ["Advisor briefs sent", briefed, range, start_date, end_date, "Observed advisor handoffs"],
-    ["Modeled annual fee opportunity", usd(booked * aum * (fee / 100)), range, start_date, end_date, `Illustrative model at ${usd(aum)} assets and ${fee.toFixed(2)}% fee`],
-    ...STAGES.map(([key, label]) => [label, funnel[key] || 0, range, start_date, end_date, "Observed funnel event count"]),
+    t("csvHeaders"),
+    [t("kpiMatched"), matched, period, start_date, end_date, notes.matched],
+    [t("kpiConversion"), `${conversion}%`, period, start_date, end_date, notes.conversion],
+    [t("kpiBriefed"), briefed, period, start_date, end_date, notes.briefed],
+    [t("kpiOpportunity"), usd(booked * aum * (fee / 100)), period, start_date, end_date, notes.opportunity(usd(aum), fee.toFixed(2))],
+    ...STAGE_KEYS.map((key) => [stageLabel(key), funnel[key] || 0, period, start_date, end_date, notes.funnel]),
   ];
   const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -923,20 +860,27 @@ function exportMetricsCsv() {
   URL.revokeObjectURL(url);
 }
 
+// Recommendations have an id (see actionable_insights in the backend) so they can be shown in any language.
+function recommendationText(item) {
+  const r = (T[state.lang] ?? T.en).rec?.[item.id] ?? T.en.rec[item.id];
+  if (!r) return { title: item.title, body: item.body, metric: item.metric || "" };
+  return { title: r.title, body: r.body, metric: r.metric(item.values || {}) };
+}
 function renderRecommendations(input) {
-  if (Array.isArray(input)) {
-    $("#recommendations").innerHTML = input.map((item, index) => `<article class="recommendation ${item.priority === "positive" ? "positive" : ""}"><span class="recommendation-number">${index + 1}</span><div><strong>${esc(item.title)}</strong><p>${esc(item.body)}</p><small>${esc(item.metric || "")}</small></div></article>`).join("");
-    return;
+  let items = input;
+  if (!Array.isArray(input)) {
+    const { matched, briefed, conversion } = input;
+    items = [];
+    if (!matched) items.push({ id: "first_proof", priority: "high", values: {} });
+    else if (conversion < 25) items.push({ id: "conversion", priority: "high", values: { conversion } });
+    else items.push({ id: "scale", priority: "positive", values: { conversion } });
+    if (matched && briefed / matched < 0.8) items.push({ id: "handoff", priority: "medium", values: { rate: Math.round((briefed / matched) * 100) } });
+    if (matched >= 3) items.push({ id: "prove", priority: "medium", values: { matched } });
   }
-  const { matched, briefed, conversion } = input;
-  const box = $("#recommendations");
-  const items = [];
-  if (!matched) items.push({ tone: "priority", title: "Create the first proof point", body: "Run 3 to 5 golden-path intakes so the demo can show advisor matches, booking momentum, and a before-and-after story." });
-  else if (conversion < 25) items.push({ tone: "priority", title: "Improve match-to-meeting conversion", body: "Test a stronger next step after matching: show the best-fit advisor first, explain why, and offer two concrete meeting times." });
-  else items.push({ tone: "positive", title: "Scale the matching motion", body: "Conversion is showing momentum. The biggest upside now comes from routing more qualified prospects into the same guided experience." });
-  if (matched && briefed / matched < 0.8) items.push({ tone: "focus", title: "Close the advisor handoff loop", body: "Increase briefing completion so advisors receive goals and concerns before the meeting. This protects the value of the match beyond the first click." });
-  if (matched >= 3) items.push({ tone: "focus", title: "Make the value easy to prove", body: "Lead the pitch with matches delivered, booking rate, and modeled fee opportunity. Keep the model labeled illustrative and pair it with observed counts." });
-  box.innerHTML = items.map((item, index) => `<article class="recommendation ${item.tone}"><span class="recommendation-number">${index + 1}</span><div><strong>${item.title}</strong><p>${item.body}</p></div></article>`).join("");
+  $("#recommendations").innerHTML = items.map((item, index) => {
+    const { title, body, metric } = recommendationText(item);
+    return `<article class="recommendation ${item.priority === "positive" ? "positive" : ""}"><span class="recommendation-number">${index + 1}</span><div><strong>${esc(title)}</strong><p>${esc(body)}</p><small>${esc(metric)}</small></div></article>`;
+  }).join("");
 }
 
 const usd = (n) => n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : `$${Math.round(n).toLocaleString()}`;
@@ -1002,6 +946,7 @@ async function init() {
     };
   });
   document.querySelectorAll(".language-option").forEach((button) => (button.onclick = () => {
+    const typed = state.bookingForm && $("#booking-form") ? bookingFormValues() : null; // before anything redraws
     state.lang = button.dataset.lang;
     document.querySelectorAll(".language-option").forEach((option) => {
       const active = option === button;
@@ -1013,6 +958,10 @@ async function init() {
     if ($("#matches .match")) renderMatches(state.lastMatches || []);
     renderDirectory();
     if (state.bookings?.length) renderBookings();
+    if (typed) openBookingForm(state.bookingForm.advisor, state.bookingForm.existing, typed);
+    if (lastBookings) renderAdvisorBookings();
+    if (currentMetricsReport) renderMetrics();
+    calcRoi();
   }));
   document.querySelectorAll(".size-option").forEach((button) => (button.onclick = () => {
     const size = Number(button.dataset.size);
@@ -1053,7 +1002,7 @@ async function init() {
   $("#chat-collapse").onclick = () => {
     const collapsed = document.body.classList.toggle("chat-collapsed");
     $("#chat-collapse").setAttribute("aria-expanded", String(!collapsed));
-    $("#chat-collapse").textContent = collapsed ? "Show chat" : "Hide chat";
+    $("#chat-collapse").textContent = collapsed ? t("chatShow") : t("chatHide");
   };
   document.querySelectorAll(".chip").forEach((c) => (c.onclick = () => send(c.textContent)));
   $("#refresh-bookings").onclick = loadBookings;
@@ -1076,8 +1025,8 @@ async function init() {
   calcRoi();
   setupMetricDateSelectors();
   applyI18n();
-  addMsg("bot", t("greeting"));
+  addMsg("bot", t("greeting"), { i18n: { key: "greeting" } });
   restoreBooking();
-  if (!CFG.apiUrl) addMsg("bot", "Setup note: config.json has no apiUrl yet. Run the deploy script.", { cls: "error" });
+  if (!CFG.apiUrl) addMsg("bot", t("setupNote"), { cls: "error", i18n: { key: "setupNote" } });
 }
 init();
