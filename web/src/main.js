@@ -51,7 +51,7 @@ const T = {
     bkCancelMeeting: "Cancel meeting", bkConfirmCancel: (n) => `Cancel your meeting with ${n}?`, bkYesCancel: "Yes, cancel it",
     bkKeep: "Keep it", bkCancelled: "Meeting cancelled", bkCancelledNote: "The time is free again and your advisor has been told.",
     bkChatTip: "You can also type changes in the chat, e.g. \"move it to Thursday at 3pm\" or \"cancel my meeting\".",
-    progressLabel: "Getting to know you", matchScore: (n) => `${n}% match`, whyFit: "Why this match",
+    matchScore: (n) => `${n}% match`, whyFit: "Why this match",
     langNames: { English: "English", Spanish: "Spanish", Mandarin: "Mandarin" },
     reason: {
       language: (v, t) => `Speaks ${t.langNames[v] ?? v}, your preferred language`,
@@ -98,7 +98,7 @@ const T = {
     bkCancelMeeting: "Cancelar reunión", bkConfirmCancel: (n) => `¿Cancelar su reunión con ${n}?`, bkYesCancel: "Sí, cancelarla",
     bkKeep: "Mantenerla", bkCancelled: "Reunión cancelada", bkCancelledNote: "El horario quedó libre y su asesor ya fue avisado.",
     bkChatTip: "También puede escribir cambios en el chat, p. ej. \"muévela al jueves a las 3pm\" o \"cancela mi reunión\".",
-    progressLabel: "Conociéndole", matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
+    matchScore: (n) => `${n}% de coincidencia`, whyFit: "Por qué coincide",
     langNames: { English: "inglés", Spanish: "español", Mandarin: "mandarín" },
     reason: {
       language: (v, t) => `Habla ${t.langNames[v] ?? v}, su idioma preferido`,
@@ -130,7 +130,7 @@ const T = {
     bkCancelMeeting: "取消会面", bkConfirmCancel: (n) => `要取消与 ${n} 的会面吗？`, bkYesCancel: "是的，取消",
     bkKeep: "保留", bkCancelled: "会面已取消", bkCancelledNote: "该时间已释放，并已通知您的顾问。",
     bkChatTip: "您也可以在聊天中输入修改，例如“改到周四下午3点”或“取消我的会面”。",
-    progressLabel: "了解您", matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
+    matchScore: (n) => `匹配度 ${n}%`, whyFit: "匹配原因",
     langNames: { English: "英语", Spanish: "西班牙语", Mandarin: "普通话" },
     reason: {
       language: (v, t) => `会说${t.langNames[v] ?? v}，您偏好的语言`,
@@ -282,7 +282,6 @@ async function send(text, extra = {}) {
     state.sessionId = res.session_id;
     typing.remove();
     addMsg("bot", res.reply || "…");
-    if (res.progress) renderProgress(res.progress);
     if (res.matches) renderMatches((state.lastMatches = res.matches));
     if (res.booking) { saveBookingLocally(res.booking); renderBooking(res.booking); }
     if (state.autoread) speak(res.reply);
@@ -295,15 +294,6 @@ async function send(text, extra = {}) {
     $("#send").disabled = false;
     $("#msg").focus();
   }
-}
-
-// Intake progress (how many preference slots are filled), announced politely to screen readers.
-function renderProgress(p) {
-  const box = $("#intake-progress");
-  box.hidden = false;
-  $("#progress-val").textContent = `${p.percent}%`;
-  box.querySelector(".progress-track").setAttribute("aria-valuenow", p.percent);
-  box.querySelector(".progress-fill").style.width = `${p.percent}%`;
 }
 
 // Explainable match notes: deterministic reasons from the ranking, rendered in the user's language.

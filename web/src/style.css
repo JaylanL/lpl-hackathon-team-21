@@ -122,11 +122,6 @@ html.contrast .term-tip:not([hidden]) { border-width: 2px; box-shadow: none; }
 .why { font-size: .85rem; margin: 6px 0; }
 .why ul { margin: 4px 0; padding-left: 18px; }
 .disclosure { font-size: .8rem; border-top: 1px solid var(--line); padding-top: 6px; margin: 6px 0; }
-.progress { margin: 0 0 12px; }
-.progress-label { display: flex; justify-content: space-between; font-size: .8rem; color: var(--ink-2); margin-bottom: 4px; }
-.progress-track { height: 8px; background: var(--accent-soft); border-radius: 999px; overflow: hidden; }
-.progress-fill { height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
-@media (prefers-reduced-motion: reduce) { .progress-fill { transition: none; } }
 .crm { margin-left: 8px; font-size: .75rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
 .crm.ok { color: var(--good); border-color: currentColor; }
 .card-head { display: flex; align-items: center; gap: 10px; }
