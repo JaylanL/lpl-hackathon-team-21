@@ -309,11 +309,18 @@ async function translateChatHistory() {
 let audioEl = null;
 async function speak(text) {
   try {
-    const { audio_b64 } = await post("/speak", { text: plain(text), lang: state.lang });
+    const cleanText = plain(text).trim();
+    if (!cleanText) return;
+    const { audio_b64 } = await post("/speak", { text: cleanText, lang: state.lang });
+    if (!audio_b64) throw new Error("Speech audio was not returned by the server");
     if (audioEl) audioEl.pause();
     audioEl = new Audio("data:audio/mpeg;base64," + audio_b64);
+    audioEl.onended = () => { audioEl = null; };
     await audioEl.play();
-  } catch (e) { console.warn("[speak]", e); }
+  } catch (e) {
+    console.warn("[speak]", e);
+    $("#live-hint").textContent = `Read aloud unavailable: ${e.message}`;
+  }
 }
 
 // ---------- chat ----------
