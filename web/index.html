@@ -103,14 +103,57 @@
       <section id="view-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" class="view" hidden>
         <div class="section-head">
           <div>
-            <h1 class="h1" data-i18n="dashTitle">Prospect-to-client funnel</h1>
-            <p class="lead" data-i18n="dashLead">Every intake is measured, so impact is visible, not claimed.</p>
+            <h1 class="h1" data-i18n="dashTitle">Business impact dashboard</h1>
+            <p class="lead" data-i18n="dashLead">Track advisor matches, meeting momentum, and the value this experience could unlock.</p>
           </div>
           <button class="secondary" id="refresh-metrics" data-i18n="refresh">Refresh</button>
         </div>
-        <div id="funnel" class="funnel" aria-live="polite"></div>
+        <div class="report-toolbar" role="group" aria-label="Report period and export controls">
+          <label for="metrics-range">Reporting period
+            <select id="metrics-range">
+              <option value="daily">Daily</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="all">All time</option>
+              <option value="custom">Custom range</option>
+            </select>
+          </label>
+          <label for="metrics-year">Year
+            <select id="metrics-year"></select>
+          </label>
+          <label for="metrics-month">Month
+            <select id="metrics-month">
+              <option value="">All months</option>
+              <option value="01">January</option><option value="02">February</option><option value="03">March</option>
+              <option value="04">April</option><option value="05">May</option><option value="06">June</option>
+              <option value="07">July</option><option value="08">August</option><option value="09">September</option>
+              <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+            </select>
+          </label>
+          <div id="custom-range" class="custom-range" hidden>
+            <label for="metrics-start">From <input id="metrics-start" type="date" /></label>
+            <label for="metrics-end">To <input id="metrics-end" type="date" /></label>
+          </div>
+          <button type="button" class="secondary export-button" id="export-metrics">Download CSV</button>
+        </div>
+        <div class="dashboard-note"><span class="status-dot"></span><strong id="metrics-day">Today</strong><span>Observed activity from the live prototype</span></div>
+        <div id="impact-kpis" class="impact-kpis" aria-live="polite">
+          <div class="impact-kpi"><span class="kpi-label">Advisor matches delivered</span><strong id="kpi-matched">—</strong><span class="kpi-context">clients reached with a ranked match</span></div>
+          <div class="impact-kpi"><span class="kpi-label">Match-to-meeting rate</span><strong id="kpi-conversion">—</strong><span class="kpi-context">matched prospects who booked</span></div>
+          <div class="impact-kpi"><span class="kpi-label">Advisor briefs sent</span><strong id="kpi-briefed">—</strong><span class="kpi-context">meetings ready for a better first call</span></div>
+          <div class="impact-kpi accent"><span class="kpi-label">Modeled annual fee opportunity</span><strong id="kpi-opportunity">—</strong><span class="kpi-context">illustrative, based on booked meetings</span></div>
+        </div>
+        <div class="dashboard-columns">
+          <div>
+            <h2 class="h2 dashboard-section-title">What to do next</h2>
+            <div id="recommendations" class="recommendations" aria-live="polite"></div>
+          </div>
+          <div>
+            <h2 class="h2 dashboard-section-title">Observed conversion funnel</h2>
+            <div id="funnel" class="funnel" aria-live="polite"></div>
+          </div>
+        </div>
 
-        <h2 class="h2" data-i18n="roiTitle">Business impact calculator (illustrative)</h2>
+        <h2 class="h2" data-i18n="roiTitle">Model the upside</h2>
         <p class="muted" data-i18n="roiNote">Move the sliders to model scenarios. Assumptions are inputs, not forecasts.</p>
         <div class="roi">
           <div class="roi-inputs">

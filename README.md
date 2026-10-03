@@ -19,4 +19,15 @@ Re-run `bash deploy.sh` after any change. `RESEED=1 bash deploy.sh` regenerates 
 - Infrastructure: template.yaml
 
 ## API (Function URL)
+<<<<<<< Updated upstream
 POST /chat {message, session_id?, simple?}; POST /speak {text, lang}; POST /metrics; POST /bookings; GET /health
+=======
+POST /chat {message, session_id?, simple?, selected_advisor_id?}; POST /speak {text, lang}; POST /metrics {range?, start_date?, end_date?}; POST /insights {funnel}; POST /bookings;
+POST /advisors {language?, meeting_type?, text?} (full advisor list for the "All advisors" tab); GET /health
+
+The Business dashboard uses the Lambda-backed `/insights` route for prioritized actions and exports selected reports as CSV. CSV reports can be imported into Amazon QuickSight for richer visualization. Embedded QuickSight dashboards require an account-specific dashboard, permissions, and embed identity, so this prototype keeps visualization in the app and provides a QuickSight-ready export.
+
+## Architecture skills
+The coding-agent skills are in `skills/` (from `test1`); how each one maps onto this app: docs/skills-applied.md.
+AWS SDK credentials check: `pip install -r requirements.txt && python scripts/check_aws_sdk.py`
+>>>>>>> Stashed changes
